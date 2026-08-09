@@ -814,9 +814,11 @@ if (require.main === module) {
     }
   }, 60 * 60 * 1000); // every hour
 
-  app.listen(PORT, () => {
+  // Railway requirement: MUST bind to 0.0.0.0 (not localhost) so the edge proxy can reach us.
+  // See https://docs.railway.com/networking/troubleshooting/application-failed-to-respond
+  app.listen(PORT, '0.0.0.0', () => {
     const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
-    console.log(`Summit National Bank server running on port ${PORT}`);
+    console.log(`Summit National Bank server running on port ${PORT} (host 0.0.0.0)`);
     console.log(`Data directory: ${dataDir}`);
     console.log(`Persistent storage: ${process.env.DATA_DIR ? 'YES (volume mounted)' : 'NO (using local ./data — set DATA_DIR=/data on Railway)'}`);
   });
