@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Summit National Bank — Admin Control Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN SCREEN
+     ============================================================ -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="brand-mark">S</div>
+      <div>
+        <div class="brand-name">Summit National Bank</div>
+        <div class="brand-sub">Admin Control Panel</div>
+      </div>
+    </div>
+    <div class="login-hero">
+      <h1>Operations <span class="accent">Command Center</span></h1>
+      <p>Review and approve customer sign-ups, loan applications, credit card requests, deposits, and transactions. Every action persists permanently and instantly reflects on the customer's dashboard.</p>
+      <div class="login-feats">
+        <div class="feat"><span class="feat-ic">✓</span> Real-time approval queue</div>
+        <div class="feat"><span class="feat-ic">✓</span> Manual account crediting</div>
+        <div class="feat"><span class="feat-ic">✓</span> Full audit trail</div>
+        <div class="feat"><span class="feat-ic">✓</span> Persistent across sessions</div>
+      </div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-card">
+      <h2>Admin Sign In</h2>
+      <p class="login-sub">Enter your administrator password to access the control panel.</p>
+      <form id="loginForm" autocomplete="off">
+        <div class="field">
+          <label>Admin Password</label>
+          <input type="password" id="adminPass" placeholder="Enter admin password" required>
+        </div>
+        <div id="loginError" class="login-error" style="display:none;"></div>
+        <button type="submit" class="btn btn-primary btn-block">Sign In to Admin Panel</button>
+      </form>
+      <div class="login-demo">
+        <strong>Demo password:</strong> <code>admin2024</code>
+      </div>
+      <div class="login-switch">
+        <a href="../login.html">← Customer login</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MAIN APP SHELL (hidden until logged in)
+     ============================================================ -->
+<div id="appShell" class="app-shell" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark sm">S</div>
+      <div>
+        <div class="sb-name">Summit Bank</div>
+        <div class="sb-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-ic">▣</span> Dashboard
+      </button>
+      <button class="nav-item" data-view="signups">
+        <span class="nav-ic">⊕</span> Sign-Ups
+        <span class="nav-badge" id="badge-signups">0</span>
+      </button>
+      <button class="nav-item" data-view="loans">
+        <span class="nav-ic">$</span> Loan Applications
+        <span class="nav-badge" id="badge-loans">0</span>
+      </button>
+      <button class="nav-item" data-view="cards">
+        <span class="nav-ic">◙</span> Credit Card Apps
+        <span class="nav-badge" id="badge-cards">0</span>
+      </button>
+      <button class="nav-item" data-view="deposits">
+        <span class="nav-ic">↓</span> Deposit Approvals
+        <span class="nav-badge" id="badge-deposits">0</span>
+      </button>
+      <button class="nav-item" data-view="crypto">
+        <span class="nav-ic">₿</span> Crypto Deposits
+        <span class="nav-badge" id="badge-crypto">0</span>
+      </button>
+      <button class="nav-item" data-view="giftcards">
+        <span class="nav-ic">★</span> Gift Card Deposits
+        <span class="nav-badge" id="badge-giftcards">0</span>
+      </button>
+      <button class="nav-item" data-view="chat">
+        <span class="nav-ic">✂</span> Live Chat Support
+        <span class="nav-badge" id="badge-chat">0</span>
+      </button>
+      <button class="nav-item" data-view="wallets">
+        <span class="nav-ic">⚓</span> Crypto Wallets
+      </button>
+      <button class="nav-item" data-view="transactions">
+        <span class="nav-ic">⇄</span> Transactions
+        <span class="nav-badge" id="badge-transactions">0</span>
+      </button>
+      <div class="nav-divider"></div>
+      <button class="nav-item" data-view="accounts">
+        <span class="nav-ic">☰</span> All Accounts
+      </button>
+      <button class="nav-item" data-view="credit">
+        <span class="nav-ic">+</span> Credit Account
+      </button>
+      <button class="nav-item" data-view="customers">
+        <span class="nav-ic">☺</span> Customers
+      </button>
+      <button class="nav-item" data-view="audit">
+        <span class="nav-ic">◷</span> Audit Log
+      </button>
+      <button class="nav-item" data-view="email">
+        <span class="nav-ic">✉</span> Email Settings
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="admin-info">
+        <div class="admin-avatar">DR</div>
+        <div>
+          <div class="admin-name" id="adminName">Dana Reyes</div>
+          <div class="admin-role">Administrator</div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="adminLogout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-area">
+    <header class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <h1 class="topbar-title" id="viewTitle">Dashboard</h1>
+      <div class="topbar-right">
+        <div class="sync-indicator" id="syncIndicator">
+          <span class="sync-dot"></span> Live sync
+        </div>
+        <a href="../login.html" class="topbar-link" target="_blank">Customer Portal ↗</a>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+      <!-- Views rendered here by app.js -->
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     DETAIL DRAWER (slides in from right)
+     ============================================================ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <h3 id="drawerTitle">Details</h3>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<!-- ============================================================
+     CONFIRM MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Confirm Action</h3>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TOAST CONTAINER
+     ============================================================ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Scripts: SummitDB must load first, then admin app logic -->
+<script src="/api-client.js"></script>
+<script src="/admin/app.js"></script>
+</body>
+</html>

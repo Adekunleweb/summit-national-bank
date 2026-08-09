@@ -1,0 +1,17 @@
+{
+  "name": "summit-national-bank",
+  "version": "1.0.0",
+  "description": "Summit National Bank — Full-stack banking application with backend API",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

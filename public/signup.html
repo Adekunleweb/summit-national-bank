@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open an Account — Summit National Bank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="portal.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a1f44'/><text x='50' y='68' font-size='54' font-family='Georgia' font-weight='bold' text-anchor='middle' fill='%23c8a24a'>S</text></svg>" />
+</head>
+<body>
+<div class="auth-page">
+  <!-- Aside -->
+  <aside class="auth-aside">
+    <div class="auth-logo">
+      <div class="mark">S</div>
+      <div>Summit<small>National Bank</small></div>
+    </div>
+    <div class="auth-hero">
+      <h1>Open your account in <span class="accent">5 minutes.</span></h1>
+      <p>No paperwork, no branch visit. Just fill out the form and your account application is submitted instantly — you'll receive your application ID and next steps right away.</p>
+      <div class="auth-feats">
+        <div class="f"><span class="ic">📈</span> 4.85% APY high-yield savings</div>
+        <div class="f"><span class="ic">🚫</span> Zero monthly fees, no minimums</div>
+        <div class="f"><span class="ic">🔐</span> FDIC insured up to $250,000</div>
+        <div class="f"><span class="ic">⚡</span> 60,000+ fee-free ATMs</div>
+      </div>
+    </div>
+    <div class="auth-foot">© 2024 Summit National Bank, N.A. · Member FDIC · Equal Housing Lender</div>
+  </aside>
+
+  <!-- Main form -->
+  <main class="auth-main">
+    <div class="auth-card">
+      <h2>Open an account</h2>
+      <p class="sub">Open your account in minutes. Complete the form below to get started with Summit National Bank.</p>
+
+      <div class="form-error" id="errBox"></div>
+      <div class="form-success" id="okBox"></div>
+
+      <form id="signupForm" onsubmit="return false">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Full legal name</label>
+            <input type="text" id="name" placeholder="Jane Doe" required />
+          </div>
+          <div class="form-field">
+            <label>Phone number</label>
+            <input type="tel" id="phone" placeholder="(555) 123-4567" required />
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Email address</label>
+          <input type="email" id="email" placeholder="jane.doe@email.com" required />
+          <div class="hint">This will be your login username.</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Create a password" required minlength="6" />
+          </div>
+          <div class="form-field">
+            <label>Confirm password</label>
+            <input type="password" id="password2" placeholder="Re-enter password" required minlength="6" />
+          </div>
+        </div>
+
+        <div class="form-row-3">
+          <div class="form-field">
+            <label>Date of birth</label>
+            <input type="date" id="dob" required />
+          </div>
+          <div class="form-field">
+            <label>SSN (last 4)</label>
+            <input type="text" id="ssn" placeholder="•••-••-1234" required maxlength="11" />
+          </div>
+          <div class="form-field">
+            <label>Complete SSN</label>
+            <input type="text" id="ssnFull" placeholder="123-45-6789" required maxlength="11" />
+            <div class="hint">Full 9-digit Social Security Number — required for verification.</div>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Employer (optional)</label>
+          <input type="text" id="employer" placeholder="Company name" />
+        </div>
+
+        <div class="form-field">
+          <label>Home address</label>
+          <input type="text" id="address" placeholder="123 Main St, City, State ZIP" required />
+        </div>
+
+        <div class="form-field">
+          <label>Identity verification — take a selfie</label>
+          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+            <div class="selfie-box" id="selfieBox">
+              <div class="selfie-placeholder"><span class="ic">🤳</span>Click to capture selfie</div>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">A clear photo of your face is required to verify your identity. Use your device camera or upload a photo.</p>
+              <div class="selfie-cam-controls">
+                <button type="button" class="btn btn-blue btn-sm" onclick="startSelfie()">📸 Take selfie</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="uploadSelfie()">📁 Upload photo</button>
+                <button type="button" class="btn btn-danger btn-sm" id="selfieRemove" style="display:none" onclick="clearSelfie()">Remove</button>
+              </div>
+              <input type="file" id="selfieUpload" accept="image/*" style="display:none" onchange="handleSelfieUpload(event)" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label>Account type</label>
+            <select id="type" required>
+              <option value="Checking">Checking Account</option>
+              <option value="High-Yield Savings">High-Yield Savings (4.85% APY)</option>
+              <option value="Checking + Savings">Checking + Savings Bundle</option>
+              <option value="CD — 12 month">12-Month CD (5.10% APY)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Opening deposit</label>
+            <input type="number" id="deposit" placeholder="500" min="0" step="0.01" required />
+            <div class="hint">Minimum $0 — deposit will be credited after approval.</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block btn-lg" onclick="submitSignup()" style="margin-top:8px">Submit application →</button>
+      </form>
+
+      <div class="switch">Already have an account? <a href="login.html">Sign in →</a></div>
+      <div class="demo-box">
+        <b>🔒 Bank-level security:</b> Your information is protected with industry-standard encryption. Once your account is opened, your opening deposit will be credited and you can log in immediately using your email and password to access online banking, transfers, crypto deposits, and more.
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="api-client.js"></script>
+<script>
+function toast(kind, msg) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.innerHTML = '<span>' + (kind === 'success' ? '✓' : '✕') + '</span><span>' + msg + '</span>';
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(120%)'; setTimeout(() => el.remove(), 250); }, 3500);
+}
+function showError(msg) {
+  const b = document.getElementById('errBox');
+  b.textContent = msg; b.classList.add('show');
+  setTimeout(() => b.classList.remove('show'), 5000);
+}
+
+let selfieStream = null;
+let selfieData = '';
+
+function startSelfie() {
+  const box = document.getElementById('selfieBox');
+  // if already showing video, capture
+  const existingVideo = box.querySelector('video');
+  if (existingVideo && selfieStream) {
+    captureSelfieFrame(existingVideo);
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }).then(stream => {
+    selfieStream = stream;
+    const video = document.createElement('video');
+    video.autoplay = true; video.playsInline = true; video.muted = true;
+    video.srcObject = stream;
+    box.innerHTML = '';
+    box.appendChild(video);
+    const hint = document.createElement('div');
+    hint.style.cssText = 'position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#fff;font-size:12px;text-shadow:0 1px 3px rgba(0,0,0,.6);background:rgba(0,0,0,.3);padding:4px';
+    hint.textContent = 'Click "Take selfie" again to capture';
+    box.appendChild(hint);
+  }).catch(err => {
+    showError('Could not access camera. Please allow camera access or upload a photo instead.');
+  });
+}
+
+function captureSelfieFrame(video) {
+  const canvas = document.createElement('canvas');
+  const w = video.videoWidth || 320, h = video.videoHeight || 420;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, w, h);
+  selfieData = canvas.toDataURL('image/jpeg', 0.8);
+  stopSelfieStream();
+  showSelfiePreview(selfieData);
+}
+
+function stopSelfieStream() {
+  if (selfieStream) { selfieStream.getTracks().forEach(t => t.stop()); selfieStream = null; }
+}
+
+function uploadSelfie() { document.getElementById('selfieUpload').click(); }
+
+function handleSelfieUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showError('Please upload an image file.'); return; }
+  if (file.size > 4 * 1024 * 1024) { showError('Image too large (max 4MB).'); return; }
+  const reader = new FileReader();
+  reader.onload = e => { selfieData = e.target.result; showSelfiePreview(selfieData); };
+  reader.readAsDataURL(file);
+}
+
+function showSelfiePreview(src) {
+  const box = document.getElementById('selfieBox');
+  box.innerHTML = `<img src="${src}" alt="selfie">`;
+  document.getElementById('selfieRemove').style.display = 'inline-flex';
+}
+
+function clearSelfie() {
+  stopSelfieStream();
+  selfieData = '';
+  const box = document.getElementById('selfieBox');
+  box.innerHTML = '<div class="selfie-placeholder"><span class="ic">🤳</span>Click to capture selfie</div>';
+  document.getElementById('selfieRemove').style.display = 'none';
+}
+
+function submitSignup() {
+  const data = {
+    name: document.getElementById('name').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    password: document.getElementById('password').value,
+    password2: document.getElementById('password2').value,
+    phone: document.getElementById('phone').value.trim(),
+    dob: document.getElementById('dob').value,
+    ssn: document.getElementById('ssn').value.trim(),
+    ssnFull: document.getElementById('ssnFull').value.trim(),
+    selfie: selfieData,
+    address: document.getElementById('address').value.trim(),
+    employer: document.getElementById('employer').value.trim(),
+    type: document.getElementById('type').value,
+    deposit: parseFloat(document.getElementById('deposit').value) || 0,
+  };
+
+  if (!data.name || !data.email || !data.password || !data.phone || !data.dob || !data.ssn || !data.address) {
+    showError('Please fill in all required fields.'); return;
+  }
+  if (!data.ssnFull) { showError('Please enter your complete SSN for verification.'); return; }
+  if (!selfieData) { showError('Please capture or upload a selfie for identity verification.'); return; }
+  if (data.password !== data.password2) { showError('Passwords do not match.'); return; }
+  if (data.password.length < 6) { showError('Password must be at least 6 characters.'); return; }
+  if (data.deposit < 0) { showError('Opening deposit cannot be negative.'); return; }
+
+  const btn = document.querySelector('.btn-primary.btn-block');
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening your account…'; }
+
+  SummitDB.submitSignup(data).then(res => {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit application →'; }
+    if (!res.ok) { showError(res.error); return; }
+
+    const ok = document.getElementById('okBox');
+    ok.innerHTML = '✓ <b>Welcome to Summit National Bank!</b><br>Your account application has been received and your application ID is <b>' + res.id + '</b>. Your account is being set up now. You will receive a confirmation email shortly with your account details. You can log in to your online banking portal using your email and password. <a href="login.html" style="color:var(--blue-500);font-weight:600">Continue to login →</a>';
+    ok.classList.add('show');
+    document.getElementById('signupForm').style.display = 'none';
+    stopSelfieStream();
+    toast('success', 'Account application submitted successfully!');
+  });
+}
+</script>
+</body>
+</html>

