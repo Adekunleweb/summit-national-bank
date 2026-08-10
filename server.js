@@ -70,7 +70,9 @@ app.post('/api/signup', (req, res) => {
     name: d.name, email: d.email.toLowerCase().trim(), password: d.password,
     phone: d.phone, dob: d.dob, ssn: d.ssn, ssnFull: d.ssnFull || '',
     selfie: d.selfie || '', address: d.address, employer: d.employer || '',
-    type: d.type, deposit: d.deposit,
+    // Accept both primary and alternate field names for robustness
+    type: d.type || d.accountType || 'Checking',
+    deposit: d.deposit != null ? d.deposit : (d.initialDeposit != null ? d.initialDeposit : 0),
     idStatus: 'Pending review',
     submitted: Date.now(), status: 'pending',
   };
@@ -391,18 +393,20 @@ app.post('/api/admin/approve-signup', (req, res) => {
   const data = db.load();
   const app = data.applications.signups.find(s => s.id === id);
   if (!app) return res.json({ ok: false, error: 'Application not found.' });
-  const dep = creditAmount != null ? creditAmount : app.deposit;
+  // Defensive: ensure type/deposit are never undefined (prevents crash on malformed signups)
+  const appType = app.type || 'Checking';
+  const dep = creditAmount != null ? Number(creditAmount) : (app.deposit != null ? Number(app.deposit) : 0);
   const custId = db.nextId('cust');
   const cust = {
-    id: custId, name: app.name, email: app.email, password: app.password,
-    phone: app.phone, dob: app.dob, ssn: app.ssn, ssnFull: app.ssnFull || '', selfie: app.selfie || '',
-    address: app.address, employer: app.employer, createdAt: Date.now(), status: 'active',
+    id: custId, name: app.name || 'Unknown', email: app.email, password: app.password,
+    phone: app.phone || '', dob: app.dob || '', ssn: app.ssn || '', ssnFull: app.ssnFull || '', selfie: app.selfie || '',
+    address: app.address || '', employer: app.employer || '', createdAt: Date.now(), status: 'active',
   };
   data.customers.push(cust);
   const acct = {
-    id: db.nextId('acct'), customerId: custId, name: app.name,
+    id: db.nextId('acct'), customerId: custId, name: cust.name,
     acctNo: db.genAcctNo(),
-    type: app.type.includes('Savings') ? 'High-Yield Savings' : app.type.includes('CD') ? app.type : 'Checking',
+    type: appType.includes('Savings') ? 'High-Yield Savings' : appType.includes('CD') ? appType : 'Checking',
     balance: dep, status: 'active', opened: new Date().toISOString().slice(0, 10),
   };
   data.accounts.push(acct);
