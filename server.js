@@ -29,6 +29,16 @@ app.use(express.json({ limit: '50mb' })); // large limit for selfie/gift card im
 // (replaces the old vercel.json rewrite, which Railway ignores)
 app.get('/', (req, res) => res.redirect('/login'));
 
+// --- Explicit page routes (extensionless URLs) ---
+// MUST come before express.static so that /admin doesn't get redirected to /admin/
+// Without these, the catch-all below serves index.html for /login, /signup, etc.
+// which causes an infinite redirect loop (index.html redirects to /login).
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, 'public', 'signup.html')));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
+app.get('/admin/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
+
 // Serve static files from /public (where our frontend lives)
 app.use(express.static(path.join(__dirname, 'public')));
 
