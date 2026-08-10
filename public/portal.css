@@ -377,10 +377,13 @@ td .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px
 .receipt-amount-section .ra-direction { font-size: 12px; color: var(--gray-500); margin-top: 4px; font-weight: 500; }
 
 /* Receipt footer */
-.receipt-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); background: var(--gray-50); text-align: center; }
-.receipt-footer .rf-note { font-size: 11px; color: var(--gray-500); line-height: 1.7; }
-.receipt-footer .rf-note strong { color: var(--gray-700); }
-.receipt-footer .rf-divider { width: 60px; height: 3px; background: var(--gold-500); margin: 0 auto 10px; border-radius: 2px; }
+.receipt-footer { padding: 18px 24px 20px; border-top: 1px solid var(--gray-200); background: var(--gray-50); text-align: center; }
+.receipt-footer .rf-divider { width: 60px; height: 3px; background: var(--gold-500); margin: 0 auto 14px; border-radius: 2px; }
+.receipt-footer .rf-bank-line { font-size: 12px; font-weight: 700; color: var(--navy-900); letter-spacing: .3px; margin-bottom: 4px; }
+.receipt-footer .rf-contact { font-size: 11px; color: var(--gray-500); margin-bottom: 14px; letter-spacing: .2px; }
+.receipt-footer .rf-legal { font-size: 10.5px; color: var(--gray-400); line-height: 1.65; max-width: 420px; margin: 0 auto 12px; font-style: italic; }
+.receipt-footer .rf-stamp { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: 1px; padding: 5px 14px; border: 1px solid var(--gray-300); border-radius: 4px; background: var(--white); }
+.receipt-footer .rf-stamp .rf-stamp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-500); }
 
 /* Receipt action buttons */
 .receipt-actions { display: flex; gap: 10px; padding: 14px 24px; background: var(--white); border-top: 1px solid var(--gray-200); }

@@ -79,6 +79,13 @@ function fmtDateTime(ts) {
     ' \u2022 ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
 }
 
+/* Clean date+time for receipt footer stamp (no seconds, no weekday) */
+function fmtReceiptStamp(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 /* ==========================================================================
    TRANSACTION RECEIPT
    Opens a professional, printable bank receipt for any transaction.
@@ -193,12 +200,10 @@ function showReceipt(txnId) {
         <!-- Footer -->
         <div class="receipt-footer">
           <div class="rf-divider"></div>
-          <div class="rf-note">
-            <strong>${esc(bankName)}</strong><br>
-            ${esc(bankPhone)} \u2022 ${esc(bankEmail)}<br>
-            This is an electronically generated receipt and does not require a signature.<br>
-            Please retain for your records. \u2022 Generated ${fmtDateTime(Date.now())}
-          </div>
+          <div class="rf-bank-line">${esc(bankName)}, N.A.</div>
+          <div class="rf-contact">${esc(bankPhone)} \u2022 ${esc(bankEmail)} \u2022 Routing #021000021</div>
+          <div class="rf-legal">This receipt confirms the transaction described above has been processed and posted to your account. For questions about this transaction, contact customer service or visit your nearest branch. Please retain this receipt for your personal records.</div>
+          <div class="rf-stamp"><span class="rf-stamp-dot"></span>Processed \u2022 ${fmtReceiptStamp(Date.now())}</div>
         </div>
       </div>
     </div>
@@ -281,9 +286,13 @@ function downloadReceipt(txnId) {
   .ra-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
   .ra-amount { font-size: 30px; font-weight: 800; }
   .ra-amount.in { color: #16a34a; }
-  .receipt-footer { padding: 16px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; text-align: center; }
-  .rf-divider { width: 60px; height: 3px; background: #c8a24a; margin: 0 auto 10px; border-radius: 2px; }
-  .rf-note { font-size: 11px; color: #64748b; line-height: 1.7; }
+  .receipt-footer { padding: 18px 24px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; text-align: center; }
+  .rf-divider { width: 60px; height: 3px; background: #c8a24a; margin: 0 auto 14px; border-radius: 2px; }
+  .rf-bank-line { font-size: 12px; font-weight: 700; color: #0a1f44; letter-spacing: .3px; margin-bottom: 4px; }
+  .rf-contact { font-size: 11px; color: #64748b; margin-bottom: 14px; letter-spacing: .2px; }
+  .rf-legal { font-size: 10.5px; color: #94a3b8; line-height: 1.65; max-width: 420px; margin: 0 auto 12px; font-style: italic; }
+  .rf-stamp { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; }
+  .rf-stamp-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
   @media print { body { background: #fff; padding: 0; } }
 </style>
 </head>
@@ -314,7 +323,10 @@ function downloadReceipt(txnId) {
     </div>
     <div class="receipt-footer">
       <div class="rf-divider"></div>
-      <div class="rf-note"><strong>${esc(bankName)}</strong><br>${esc(bankPhone)} &bull; ${esc(bankEmail)}<br>This is an electronically generated receipt and does not require a signature.<br>Please retain for your records.</div>
+      <div class="rf-bank-line">${esc(bankName)}, N.A.</div>
+      <div class="rf-contact">${esc(bankPhone)} &bull; ${esc(bankEmail)} &bull; Routing #021000021</div>
+      <div class="rf-legal">This receipt confirms the transaction described above has been processed and posted to your account. For questions about this transaction, contact customer service or visit your nearest branch. Please retain this receipt for your personal records.</div>
+      <div class="rf-stamp"><span class="rf-stamp-dot"></span>Processed &bull; ${fmtReceiptStamp(Date.now())}</div>
     </div>
   </div>
 </body>
