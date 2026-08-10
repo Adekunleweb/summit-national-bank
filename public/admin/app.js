@@ -1522,14 +1522,99 @@ document.querySelectorAll('.nav-item').forEach(btn => {
    ============================================================ */
 checkAuth();
 
-/* Auto-refresh every 5 seconds to catch new customer submissions
-   and reflect real-time state changes. Data is fetched from the
-   backend API so this works across all devices and locations. */
-setInterval(function () {
-  if (document.getElementById('appShell').style.display !== 'none') {
-    refresh();
+/* SMART AUTO-REFRESH
+   Polls the backend for changes every 30 seconds, but ONLY re-renders when:
+   1. The data has actually changed (fingerprint comparison on pending counts + key data)
+   2. The user is NOT actively interacting (no typing in fields, no modal open)
+   This prevents the annoying 5-second full-page flicker while still
+   catching new customer submissions in a timely manner. */
+let lastAdminFingerprint = null;
+
+function isUserInteractingAdmin() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return false;
+}
+
+function isModalOpenAdmin() {
+  const overlay = document.getElementById('modalOverlay');
+  if (overlay && overlay.classList.contains('open')) return true;
+  // Also check for any open drawer
+  const drawer = document.getElementById('drawerOverlay');
+  if (drawer && drawer.classList.contains('open')) return true;
+  return false;
+}
+
+async function smartRefreshAdmin() {
+  // Don't refresh while admin is typing or a modal/drawer is open
+  if (isUserInteractingAdmin() || isModalOpenAdmin()) return;
+
+  // Don't refresh if not logged in
+  if (document.getElementById('appShell').style.display === 'none') return;
+
+  try {
+    // Fetch fresh data
+    const [allDb, countRes, walletRes, chatRes] = await Promise.all([
+      SummitDB.getAll(),
+      SummitDB.getPendingCounts(),
+      SummitDB.getCryptoWallets(),
+      SummitDB.getAllChats()
+    ]);
+
+    // Build fingerprint from counts + key data sizes to detect changes
+    const fingerprint = JSON.stringify({
+      counts: countRes,
+      loans: allDb ? allDb.applications.loans.length : 0,
+      cards: allDb ? allDb.applications.cards.length : 0,
+      signups: allDb ? allDb.applications.signups.length : 0,
+      deposits: allDb ? allDb.applications.deposits.length : 0,
+      txns: allDb ? allDb.applications.transactions.length : 0,
+      crypto: allDb ? allDb.applications.crypto.length : 0,
+      giftcards: allDb ? allDb.applications.giftcards.length : 0,
+      customers: allDb ? allDb.customers.length : 0,
+      wallets: walletRes ? Object.keys(walletRes).length : 0,
+      chats: chatRes ? chatRes.length : 0,
+    });
+
+    // Only re-render if something actually changed
+    if (fingerprint === lastAdminFingerprint) return;
+
+    lastAdminFingerprint = fingerprint;
+
+    // Update data and re-render
+    if (allDb) { db = allDb; }
+    if (countRes) { counts = countRes; }
+    cachedWallets = walletRes || {};
+    cachedChats = chatRes || [];
+    updateBadges();
+    renderView(currentView);
+  } catch (e) {
+    console.error('smartRefreshAdmin error:', e);
   }
-}, 5000);
+}
+
+// Initialize fingerprint after first load, then poll every 30 seconds
+setTimeout(() => {
+  if (counts) {
+    lastAdminFingerprint = JSON.stringify({
+      counts: counts,
+      loans: db ? db.applications.loans.length : 0,
+      cards: db ? db.applications.cards.length : 0,
+      signups: db ? db.applications.signups.length : 0,
+      deposits: db ? db.applications.deposits.length : 0,
+      txns: db ? db.applications.transactions.length : 0,
+      crypto: db ? db.applications.crypto.length : 0,
+      giftcards: db ? db.applications.giftcards.length : 0,
+      customers: db ? db.customers.length : 0,
+      wallets: Object.keys(cachedWallets).length,
+      chats: cachedChats.length,
+    });
+  }
+}, 2000);
+
+setInterval(smartRefreshAdmin, 30000);
 
 /* ============================================================
    VIEW: SETTINGS — Bank-wide configurable settings

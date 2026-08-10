@@ -941,5 +941,133 @@ async function changePassword() {
 })();
 // initial render (async)
 renderAll();
-// refresh every few seconds to catch admin approvals (now works across devices via backend)
-setInterval(renderAll, 5000);
+
+/* ==========================================================================
+   SMART AUTO-REFRESH
+   Polls the backend for changes every 30 seconds, but ONLY re-renders when:
+   1. The data has actually changed (JSON fingerprint comparison)
+   2. The user is NOT actively interacting (no typing, no modal open)
+   This prevents the annoying 5-second full-page flicker while still
+   catching admin approvals in a timely manner.
+   ========================================================================== */
+let lastDataFingerprint = null;
+let lastUserActivity = Date.now();
+
+// Track user activity — typing, clicking, scrolling resets the "idle" timer
+['input', 'change', 'keydown', 'click'].forEach(evt => {
+  document.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
+});
+
+// Check if user is currently interacting with a form field
+function isUserInteracting() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  // User is typing in a field or textarea
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return false;
+}
+
+// Check if a modal is currently open (don't refresh mid-action)
+function isModalOpen() {
+  const overlay = $('modalOverlay');
+  return overlay && overlay.classList.contains('open');
+}
+
+// Smart refresh: fetch data, compare fingerprint, only re-render if changed + user idle
+async function smartRefresh() {
+  // Don't refresh while user is typing or a modal is open
+  if (isUserInteracting() || isModalOpen()) return;
+
+  try {
+    const d = await SummitDB.getCustomerData(session.customerId);
+    if (!d) return; // auth issue — renderAll will handle redirect on next full cycle
+
+    // Build a lightweight fingerprint of the data that matters for rendering
+    const fingerprint = JSON.stringify({
+      a: d.customer,
+      b: d.accounts,
+      c: d.cards,
+      t: d.transactions,
+      pl: d.pendingLoans,
+      pc: d.pendingCards,
+      pd: d.pendingDeposits,
+      pt: d.pendingTxns,
+      pcr: d.pendingCrypto,
+      pg: d.pendingGiftcards,
+      fpl: d.feePendingLoans,
+      cu: d.chatUnread,
+      ch: d.chats,
+      nu: d.isNewUser,
+    });
+
+    // Only re-render if something actually changed
+    if (fingerprint === lastDataFingerprint) return;
+
+    lastDataFingerprint = fingerprint;
+    cachedData = d;
+
+    // Preserve scroll position across re-render
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+
+    // Re-render using the fresh data (inline, not renderAll, to avoid double-fetch)
+    isRendering = true;
+    try {
+      // user info
+      $('userAv').textContent = initials(d.customer.name);
+      $('userName').textContent = d.customer.name;
+      $('userEmail').textContent = d.customer.email;
+      $('greeting').textContent = 'Welcome back, ' + d.customer.name.split(' ')[0];
+      const hour = new Date().getHours();
+      $('greetingSub').textContent = (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening') + ' — here\'s a summary of your accounts.';
+
+      const hasPending = d.pendingLoans.length + d.pendingCards.length + d.pendingDeposits.length + d.pendingTxns.length + d.pendingCrypto.length + d.pendingGiftcards.length > 0;
+      $('notifPing').style.display = hasPending ? 'block' : 'none';
+
+      const cb = $('chatBadgeCust');
+      if (cb) {
+        if (d.chatUnread > 0) { cb.style.display = 'inline-block'; cb.textContent = d.chatUnread; }
+        else { cb.style.display = 'none'; }
+      }
+
+      renderAccounts(d);
+      renderOverviewTxns(d);
+      renderCards(d);
+      renderTxns(d);
+      renderPendingBanners(d);
+      renderBankingServices(d);
+      renderDepositView(d);
+      populateAccountDropdowns(d);
+      renderCryptoView(d);
+      renderGiftCardView(d);
+      renderChatView(d);
+      renderSettingsView(d);
+    } catch (e) {
+      console.error('smartRefresh render error:', e);
+    } finally {
+      isRendering = false;
+    }
+
+    // Restore scroll position
+    window.scrollTo(scrollX, scrollY);
+  } catch (e) {
+    console.error('smartRefresh fetch error:', e);
+  }
+}
+
+// Initialize fingerprint on first render, then poll every 30 seconds
+setTimeout(() => {
+  if (cachedData) {
+    lastDataFingerprint = JSON.stringify({
+      a: cachedData.customer, b: cachedData.accounts, c: cachedData.cards,
+      t: cachedData.transactions, pl: cachedData.pendingLoans, pc: cachedData.pendingCards,
+      pd: cachedData.pendingDeposits, pt: cachedData.pendingTxns,
+      pcr: cachedData.pendingCrypto, pg: cachedData.pendingGiftcards,
+      fpl: cachedData.feePendingLoans, cu: cachedData.chatUnread, ch: cachedData.chats,
+      nu: cachedData.isNewUser,
+    });
+  }
+}, 2000);
+
+setInterval(smartRefresh, 30000);
