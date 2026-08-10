@@ -296,6 +296,40 @@ td .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px
 .settings-profile-row .spr-value.mono { font-family:monospace; }
 .settings-selfie { width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--gray-200); }
 
+/* ---------- Banking Services (Credit Card + Loan cards on dashboard) ---------- */
+.svc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; margin-bottom:20px; }
+.svc-card { background:#fff; border:1px solid var(--gray-200); border-radius:var(--radius-md); overflow:hidden; display:flex; flex-direction:column; }
+.svc-card-head { padding:16px 20px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--gray-100); background:var(--gray-50); }
+.svc-card-head h3 { font-size:15px; font-weight:700; margin:0; flex:1; color:var(--navy-900); }
+.svc-card-body { padding:18px 20px; flex:1; display:flex; flex-direction:column; gap:12px; }
+.svc-item { display:flex; flex-direction:column; gap:4px; padding:14px; border-radius:10px; background:var(--gray-50); border:1px solid var(--gray-100); }
+.svc-item.svc-empty { align-items:center; text-align:center; }
+.svc-item-top { display:flex; align-items:center; gap:10px; }
+.svc-icon { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; font-size:18px; flex-shrink:0; }
+.svc-icon.svc-blue { background:#dbeafe; color:#1e40af; }
+.svc-icon.svc-amber { background:#fef3c7; color:#92400e; }
+.svc-icon.svc-green { background:#dcfce7; color:#166534; }
+.svc-info { flex:1; min-width:0; }
+.svc-title { font-weight:700; color:var(--navy-900); font-size:14px; }
+.svc-sub { font-size:12.5px; color:var(--gray-500); margin-top:2px; }
+.svc-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; }
+.svc-badge.svc-badge-ok { background:var(--green-50); color:#15803d; border:1px solid var(--green-100); }
+.svc-badge.svc-badge-pending { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+.svc-badge.svc-badge-warn { background:#fce7f3; color:#9d174d; border:1px solid #f9a8d4; }
+.svc-badge.svc-badge-active { background:var(--green-50); color:#15803d; border:1px solid var(--green-100); }
+.svc-badge.svc-badge-fee { background:#fce7f3; color:#9d174d; border:1px solid #f9a8d4; }
+.svc-note { font-size:12px; color:var(--gray-500); margin-top:6px; line-height:1.5; }
+.svc-note.svc-note-warn { color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; margin-top:8px; }
+.svc-empty .svc-empty-ic { font-size:32px; margin-bottom:8px; opacity:.5; }
+.svc-empty .svc-empty-txt { font-size:13px; color:var(--gray-500); margin-bottom:12px; line-height:1.5; }
+
+/* ---------- New-user deposit restriction banner ---------- */
+.deposit-restrict-banner { background:linear-gradient(135deg,#eff6ff,#e0f2fe); border:1px solid #93c5fd; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; gap:12px; align-items:flex-start; }
+.deposit-restrict-banner .drb-ic { width:34px; height:34px; border-radius:8px; background:#2563eb; color:#fff; display:grid; place-items:center; font-size:18px; flex-shrink:0; }
+.deposit-restrict-banner .drb-body { flex:1; }
+.deposit-restrict-banner .drb-title { font-weight:700; color:#1e3a8a; font-size:14px; margin-bottom:4px; }
+.deposit-restrict-banner .drb-text { font-size:13px; color:#1e40af; line-height:1.6; }
+
 /* ---------- Misc ---------- */
 .form-success { background:var(--green-50); border:1px solid var(--green-100); color:#15803d; padding:14px 16px; border-radius:10px; font-size:14px; margin-bottom:16px; display:none; }
 .form-success.show { display:block; }

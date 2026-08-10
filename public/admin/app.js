@@ -134,7 +134,8 @@ function go(view) {
     cards: 'Credit Card Applications', deposits: 'Deposit Approvals', transactions: 'Pending Transactions',
     crypto: 'Crypto Deposits', giftcards: 'Gift Card Deposits', chat: 'Live Chat Support', wallets: 'Crypto Wallets',
     accounts: 'All Accounts', credit: 'Credit Account', customers: 'Customers', audit: 'Audit Log',
-    email: 'Email Settings'
+    email: 'Email Settings',
+    settings: 'Bank Settings'
   };
   document.getElementById('viewTitle').textContent = titles[view] || 'Dashboard';
   renderView(view);
@@ -164,6 +165,7 @@ function renderView(view) {
     case 'customers': c.innerHTML = viewCustomers(); break;
     case 'audit': c.innerHTML = viewAudit(); break;
     case 'email': c.innerHTML = viewEmail(); break;
+    case 'settings': c.innerHTML = viewSettings(); break;
     default: c.innerHTML = viewDashboard();
   }
 }
@@ -275,9 +277,11 @@ function viewSignups() {
 function viewLoans() {
   const list = db.applications.loans;
   const pending = list.filter(l => l.status === 'pending');
-  const reviewed = list.filter(l => l.status !== 'pending');
+  const feePending = list.filter(l => l.status === 'fee_pending');
+  const reviewed = list.filter(l => l.status !== 'pending' && l.status !== 'fee_pending');
   let html = '<div class="view-section"><div class="stat-row">';
   html += miniStat('Pending', pending.length);
+  html += miniStat('Fee Pending', feePending.length);
   html += miniStat('Approved', list.filter(l => l.status === 'approved').length);
   html += miniStat('Rejected', list.filter(l => l.status === 'rejected').length);
   html += '</div>';
@@ -294,10 +298,20 @@ function viewLoans() {
   }
   html += '</div></div>';
 
+  // Fee Pending section - approved loans awaiting origination fee payment
+  if (feePending.length > 0) {
+    html += '<div class="panel"><div class="panel-header"><h3>Approved Loans — Awaiting Origination Fee</h3><span class="ph-sub">' + feePending.length + ' fee pending</span></div><div class="panel-body table-wrap">';
+    html += '<table class="data-table"><thead><tr><th>App ID</th><th>Applicant</th><th>Type</th><th>Amount</th><th>Fee Required</th><th>Actions</th></tr></thead><tbody>';
+    feePending.forEach(l => {
+      html += '<tr><td class="td-id">' + esc(l.id) + '</td><td class="td-name">' + esc(l.name) + '</td><td>' + esc(l.type) + '</td><td class="td-amount">' + money0(l.amount) + '</td><td class="td-amount">' + money0(l.loanFee || 0) + '</td><td class="td-actions"><button class="btn btn-ghost btn-sm" onclick="editLoanFee(\'' + l.id + '\')">Edit Fee</button> <button class="btn btn-success btn-sm" onclick="confirmLoanFeePaid(\'' + l.id + '\')">Confirm Fee Paid</button></td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
+
   if (reviewed.length > 0) {
     html += '<div class="panel"><div class="panel-header"><h3>Reviewed Loans</h3></div><div class="panel-body table-wrap"><table class="data-table"><thead><tr><th>App ID</th><th>Applicant</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
     reviewed.slice().reverse().forEach(l => {
-      const badge = l.status === 'approved' ? '<span class="badge badge-approved">Approved</span>' : '<span class="badge badge-rejected">Rejected</span>';
+      const badge = l.status === 'approved' ? '<span class="badge badge-approved">Approved & Disbursed</span>' : '<span class="badge badge-rejected">Rejected</span>';
       html += '<tr><td class="td-id">' + esc(l.id) + '</td><td class="td-name">' + esc(l.name) + '</td><td>' + esc(l.type) + '</td><td class="td-amount">' + money0(l.amount) + '</td><td>' + badge + '</td></tr>';
     });
     html += '</tbody></table></div></div>';
@@ -1063,7 +1077,7 @@ function viewLoanDetail(id) {
     ['Purpose', l.purpose || '—'],
     ['Submitted', fmtDate(l.submitted)],
   ]);
-  body += '<div class="drawer-actions"><button class="btn btn-success" onclick="closeDrawer();confirmApproveLoan(\'' + l.id + '\')">Approve & Disburse</button><button class="btn btn-danger" onclick="closeDrawer();confirmRejectLoan(\'' + l.id + '\')">Reject</button></div>';
+  body += '<div class="drawer-actions"><button class="btn btn-success" onclick="closeDrawer();confirmApproveLoan(\'' + l.id + '\')">Approve Loan</button><button class="btn btn-danger" onclick="closeDrawer();confirmRejectLoan(\'' + l.id + '\')">Reject</button></div>';
   openDrawer('Loan: ' + l.name, body);
 }
 
@@ -1233,15 +1247,27 @@ async function doRejectSignup(id) {
 function confirmApproveLoan(id) {
   const l = db.applications.loans.find(x => x.id === id);
   if (!l) return;
-  const body = '<p>You are about to approve a <b>' + esc(l.type) + '</b> loan for <b>' + esc(l.name) + '</b>.</p><p style="margin-top:10px">This will disburse <b>' + money0(l.amount) + '</b> to their checking account and create a loan disbursement transaction record.</p>';
-  const footer = '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-success" onclick="doApproveLoan(\'' + id + '\')">Approve & Disburse</button>';
+  const settings = db.settings || {};
+  const defaultFee = settings.defaultLoanFee != null ? settings.defaultLoanFee : 150;
+  const feeEnabled = settings.loanFeeEnabled !== false;
+  const body = '<p>You are about to approve a <b>' + esc(l.type) + '</b> loan for <b>' + esc(l.name) + '</b>.</p><p style="margin-top:10px">Loan amount: <b>' + money0(l.amount) + '</b></p>' +
+    '<div class="modal-field"><label>Loan Origination Fee ($)</label><input type="number" id="approveLoanFee" value="' + defaultFee + '" step="10" min="0"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">' +
+    (feeEnabled ? 'The customer must pay this one-time origination fee before the loan funds are disbursed. The loan will be placed in "fee pending" status until the fee is confirmed paid. Enter 0 to disburse immediately with no fee.' : 'Loan fee is currently disabled in settings. Enter 0 or enable the fee in Bank Settings.') + '</p></div>';
+  const footer = '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-success" onclick="doApproveLoan(\'' + id + '\')">Approve Loan</button>';
   openModal('Approve Loan', body, footer);
 }
 async function doApproveLoan(id) {
-  const result = await SummitDB.approveLoan(id);
+  const loanFee = parseFloat(document.getElementById('approveLoanFee').value) || 0;
+  const result = await SummitDB.approveLoan(id, loanFee);
   closeModal();
-  if (result.ok) { toast('Loan Approved', 'Funds disbursed to customer account.', 'success'); refresh(); }
-  else { toast('Error', result.error, 'error'); }
+  if (result.ok) {
+    if (result.status === 'fee_pending') {
+      toast('Loan Approved', 'Loan approved. Origination fee of $' + loanFee.toLocaleString() + ' is pending payment before disbursement.', 'success');
+    } else {
+      toast('Loan Approved', 'Funds disbursed to customer account.', 'success');
+    }
+    refresh();
+  } else { toast('Error', result.error, 'error'); }
 }
 function confirmRejectLoan(id) {
   const body = '<p>Reject this loan application?</p><div class="modal-field"><label>Rejection Reason</label><textarea id="rejectReason" rows="2" placeholder="e.g. Insufficient income"></textarea></div>';
@@ -1256,13 +1282,45 @@ async function doRejectLoan(id) {
   else { toast('Error', result.error, 'error'); }
 }
 
+/* --- Loan fee pending: confirm fee paid & edit fee --- */
+function confirmLoanFeePaid(id) {
+  const l = db.applications.loans.find(x => x.id === id);
+  if (!l) return;
+  const body = '<p>Confirm that the loan origination fee of <b>' + money0(l.loanFee || 0) + '</b> has been paid by <b>' + esc(l.name) + '</b>?</p><p style="margin-top:10px;font-size:14px;color:var(--gray-500)">Once confirmed, the loan amount of <b>' + money0(l.amount) + '</b> will be disbursed to the customer\'s checking account and a Loan Disbursement transaction will be created.</p>';
+  const footer = '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-success" onclick="doConfirmLoanFeePaid(\'' + id + '\')">Confirm Fee Paid & Disburse</button>';
+  openModal('Confirm Origination Fee Paid', body, footer);
+}
+async function doConfirmLoanFeePaid(id) {
+  const result = await SummitDB.confirmLoanFeePaid(id);
+  closeModal();
+  if (result.ok) { toast('Fee Confirmed', 'Loan funds disbursed to customer account.', 'success'); refresh(); }
+  else { toast('Error', result.error, 'error'); }
+}
+function editLoanFee(id) {
+  const l = db.applications.loans.find(x => x.id === id);
+  if (!l) return;
+  const body = '<p>Edit the loan origination fee for <b>' + esc(l.name) + '</b>\'s ' + esc(l.type) + ' loan ($' + money0(l.amount) + ').</p>' +
+    '<div class="modal-field"><label>Loan Origination Fee ($)</label><input type="number" id="editLoanFeeAmt" value="' + (l.loanFee || 0) + '" step="10" min="0"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">The customer must pay this fee before the loan funds are disbursed. Enter 0 to remove the fee requirement (funds will still need to be disbursed via "Confirm Fee Paid").</p></div>';
+  const footer = '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="doEditLoanFee(\'' + id + '\')">Save Fee</button>';
+  openModal('Edit Loan Origination Fee', body, footer);
+}
+async function doEditLoanFee(id) {
+  const amt = parseFloat(document.getElementById('editLoanFeeAmt').value) || 0;
+  const result = await SummitDB.updateLoanFee(id, amt);
+  closeModal();
+  if (result.ok) { toast('Fee Updated', 'Loan origination fee updated to $' + amt.toLocaleString() + '.', 'success'); refresh(); }
+  else { toast('Error', result.error, 'error'); }
+}
+
 /* --- Card approve (with limit override) --- */
 function confirmApproveCard(id) {
   const c = db.applications.cards.find(x => x.id === id);
   if (!c) return;
+  const settings = db.settings || {};
+  const defaultDeposit = settings.defaultCardSecurityDeposit != null ? settings.defaultCardSecurityDeposit : 250;
   const body = '<p>Approve credit card for <b>' + esc(c.name) + '</b>?</p><p style="margin-top:8px;font-size:14px;color:var(--gray-500)">Card type: ' + esc(c.cardType) + '</p>' +
     '<div class="modal-field"><label>Credit Limit ($)</label><input type="number" id="approveCardLimit" value="' + c.reqLimit + '" step="100" min="100"></div>' +
-    '<div class="modal-field"><label>Refundable Security Deposit Required Before Shipping ($)</label><input type="number" id="approveCardDeposit" value="0" step="50" min="0" placeholder="e.g. 200"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">Set a refundable deposit the customer must pay before their debit card is shipped. This deposit is fully refundable to the customer. Enter 0 if no deposit is required.</p></div>';
+    '<div class="modal-field"><label>Refundable Security Deposit Required Before Shipping ($)</label><input type="number" id="approveCardDeposit" value="' + defaultDeposit + '" step="50" min="0" placeholder="e.g. 200"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">Set a refundable deposit the customer must pay before their card is shipped. This deposit is fully refundable to the customer. The default value comes from Bank Settings. Enter 0 if no deposit is required.</p></div>';
   const footer = '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-success" onclick="doApproveCard(\'' + id + '\')">Approve & Issue</button>';
   openModal('Approve Credit Card', body, footer);
 }
@@ -1472,3 +1530,83 @@ setInterval(function () {
     refresh();
   }
 }, 5000);
+
+/* ============================================================
+   VIEW: SETTINGS — Bank-wide configurable settings
+   ============================================================ */
+function viewSettings() {
+  const s = db.settings || {};
+  const defDeposit = s.defaultCardSecurityDeposit != null ? s.defaultCardSecurityDeposit : 250;
+  const defFee = s.defaultLoanFee != null ? s.defaultLoanFee : 150;
+  const feeEnabled = s.loanFeeEnabled !== false;
+  const restrictEnabled = s.newUserDepositMethodsEnabled !== false;
+  const allowedMethods = s.newUserDepositMethods || ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer'];
+  const allMethods = ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer', 'ACH Transfer', 'Mobile Check Deposit', 'Cash Deposit'];
+  const reason = s.newUserDepositRestrictionReason || '';
+  const bankName = s.bankName || 'Summit National Bank';
+  const bankPhone = s.bankPhone || '';
+  const bankEmail = s.bankEmail || '';
+  const procTime = s.processingTimeBusinessDays || '3-5 business days';
+  const cardProcTime = s.cardProcessingTimeBusinessDays || '7-10 business days';
+
+  let html = '<div class="view-section">';
+  html += '<p style="font-size:14px;color:var(--gray-500);margin-bottom:20px">Configure bank-wide defaults for credit card security deposits, loan origination fees, and new user deposit restrictions. These settings apply to all customers and can be adjusted at any time.</p>';
+
+  // Credit Card Settings
+  html += '<div class="panel"><div class="panel-header"><h3>Credit Card Settings</h3></div><div class="panel-body" style="padding:24px">';
+  html += '<div class="field"><label>Default Security Deposit for New Credit Cards ($)</label><input type="number" id="setCardDeposit" value="' + defDeposit + '" step="50" min="0"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">This amount is pre-filled when approving a new credit card application. The deposit is refundable to the customer and must be paid before the card ships. Enter 0 for no default deposit.</p></div>';
+  html += '<div class="field"><label>Card Processing Time (displayed to customers)</label><input type="text" id="setCardProcTime" value="' + esc(cardProcTime) + '" placeholder="e.g. 7-10 business days"></div>';
+  html += '</div></div>';
+
+  // Loan Fee Settings
+  html += '<div class="panel"><div class="panel-header"><h3>Loan Origination Fee Settings</h3></div><div class="panel-body" style="padding:24px">';
+  html += '<div class="field" style="margin-bottom:16px"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="setFeeEnabled" ' + (feeEnabled ? 'checked' : '') + ' style="width:18px;height:18px"> <span>Enable loan origination fee (loans stay pending until fee is paid)</span></label></div>';
+  html += '<div class="field"><label>Default Loan Origination Fee ($)</label><input type="number" id="setLoanFee" value="' + defFee + '" step="10" min="0"><p style="font-size:12px;color:var(--gray-400);margin-top:4px">This amount is pre-filled when approving a loan. The loan will be placed in "fee pending" status until the fee is confirmed paid, at which point funds are disbursed. Enter 0 for no fee.</p></div>';
+  html += '<div class="field"><label>Loan Processing Time (displayed to customers)</label><input type="text" id="setProcTime" value="' + esc(procTime) + '" placeholder="e.g. 3-5 business days"></div>';
+  html += '</div></div>';
+
+  // New User Deposit Restrictions
+  html += '<div class="panel"><div class="panel-header"><h3>New User Deposit Restrictions</h3></div><div class="panel-body" style="padding:24px">';
+  html += '<div class="field" style="margin-bottom:16px"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="setRestrictEnabled" ' + (restrictEnabled ? 'checked' : '') + ' style="width:18px;height:18px"> <span>Restrict deposit methods for new users</span></label><p style="font-size:12px;color:var(--gray-400);margin-top:4px">When enabled, new users (fewer than 3 approved transactions and no external withdrawals) can only use the allowed deposit methods below.</p></div>';
+  html += '<div class="field"><label>Allowed Deposit Methods for New Users</label><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">';
+  allMethods.forEach(m => {
+    const checked = allowedMethods.includes(m) ? 'checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer"><input type="checkbox" class="set-method-chk" value="' + esc(m) + '" ' + checked + ' style="width:16px;height:16px"> ' + esc(m) + '</label>';
+  });
+  html += '</div></div>';
+  html += '<div class="field"><label>Restriction Reason (shown to new users)</label><textarea id="setRestrictReason" rows="4" style="width:100%;padding:10px 14px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit" placeholder="Explain why deposit methods are limited for new users...">' + esc(reason) + '</textarea><p style="font-size:12px;color:var(--gray-400);margin-top:4px">This message is displayed to new users on the deposit page when restrictions are active.</p></div>';
+  html += '</div></div>';
+
+  // Bank Contact Info
+  html += '<div class="panel"><div class="panel-header"><h3>Bank Contact Information</h3></div><div class="panel-body" style="padding:24px">';
+  html += '<div class="field"><label>Bank Name</label><input type="text" id="setBankName" value="' + esc(bankName) + '"></div>';
+  html += '<div class="field"><label>Customer Service Phone</label><input type="text" id="setBankPhone" value="' + esc(bankPhone) + '" placeholder="e.g. 1-800-555-0142"></div>';
+  html += '<div class="field"><label>Customer Service Email</label><input type="text" id="setBankEmail" value="' + esc(bankEmail) + '" placeholder="e.g. support@summitnationalbank.com"></div>';
+  html += '</div></div>';
+
+  // Save button
+  html += '<div style="margin-top:20px"><button class="btn btn-primary" onclick="saveSettings()" style="padding:12px 32px;font-size:15px">Save All Settings</button></div>';
+  html += '</div>';
+  return html;
+}
+
+async function saveSettings() {
+  const allowedMethods = [];
+  document.querySelectorAll('.set-method-chk:checked').forEach(cb => allowedMethods.push(cb.value));
+  const data = {
+    defaultCardSecurityDeposit: parseFloat(document.getElementById('setCardDeposit').value) || 0,
+    defaultLoanFee: parseFloat(document.getElementById('setLoanFee').value) || 0,
+    loanFeeEnabled: document.getElementById('setFeeEnabled').checked,
+    newUserDepositMethodsEnabled: document.getElementById('setRestrictEnabled').checked,
+    newUserDepositMethods: allowedMethods,
+    newUserDepositRestrictionReason: document.getElementById('setRestrictReason').value.trim(),
+    bankName: document.getElementById('setBankName').value.trim(),
+    bankPhone: document.getElementById('setBankPhone').value.trim(),
+    bankEmail: document.getElementById('setBankEmail').value.trim(),
+    processingTimeBusinessDays: document.getElementById('setProcTime').value.trim(),
+    cardProcessingTimeBusinessDays: document.getElementById('setCardProcTime').value.trim(),
+  };
+  const result = await SummitDB.updateSettings(data);
+  if (result.ok) { toast('Settings Saved', 'Bank settings updated successfully.', 'success'); refresh(); }
+  else { toast('Error', result.error, 'error'); }
+}

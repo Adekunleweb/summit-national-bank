@@ -84,13 +84,22 @@ const SummitDB = (function () {
     if (r.ok) {
       return {
         customer: r.customer, accounts: r.accounts, cards: r.cards, txns: r.txns,
-        pendingLoans: r.pendingLoans, pendingCards: r.pendingCards,
-        pendingDeposits: r.pendingDeposits, pendingTxns: r.pendingTxns,
-        pendingCrypto: r.pendingCrypto, pendingGiftcards: r.pendingGiftcards,
-        chat: r.chat, chatUnread: r.chatUnread,
+        pendingLoans: r.pendingLoans, feePendingLoans: r.feePendingLoans || [],
+        pendingCards: r.pendingCards, pendingDeposits: r.pendingDeposits,
+        pendingTxns: r.pendingTxns, pendingCrypto: r.pendingCrypto,
+        pendingGiftcards: r.pendingGiftcards, chat: r.chat, chatUnread: r.chatUnread,
+        isNewUser: r.isNewUser, settings: r.settings || {},
       };
     }
     return null;
+  }
+
+  /* ==========================================================================
+     PUBLIC SETTINGS
+     ========================================================================== */
+  async function getSettings() {
+    const r = await get('/settings');
+    return r.ok ? r.settings : null;
   }
 
   /* ==========================================================================
@@ -204,8 +213,10 @@ const SummitDB = (function () {
 
   async function approveSignup(id, creditAmount) { return await post('/admin/approve-signup', { id, creditAmount }); }
   async function rejectSignup(id, reason) { return await post('/admin/reject-signup', { id, reason }); }
-  async function approveLoan(id) { return await post('/admin/approve-loan', { id }); }
+  async function approveLoan(id, loanFee) { return await post('/admin/approve-loan', { id, loanFee }); }
   async function rejectLoan(id, reason) { return await post('/admin/reject-loan', { id, reason }); }
+  async function confirmLoanFeePaid(id) { return await post('/admin/confirm-loan-fee-paid', { id }); }
+  async function updateLoanFee(id, loanFee) { return await post('/admin/update-loan-fee', { id, loanFee }); }
   async function approveCard(id, limit, securityDeposit) { return await post('/admin/approve-card', { id, limit, securityDeposit }); }
   async function rejectCard(id, reason) { return await post('/admin/reject-card', { id, reason }); }
   async function confirmDepositPaid(cardId) { return await post('/admin/confirm-deposit-paid', { cardId }); }
@@ -238,6 +249,7 @@ const SummitDB = (function () {
      ADMIN — SYSTEM
      ========================================================================== */
 
+  async function updateSettings(data) { return await post('/admin/update-settings', data); }
   async function reset() { return await post('/admin/reset'); }
 
   /* ==========================================================================
@@ -247,7 +259,7 @@ const SummitDB = (function () {
     getSession, setSession, clearSession, logout,
     customerLogin, adminLogin,
     submitSignup,
-    getCustomerData,
+    getCustomerData, getSettings,
     getPendingCounts, getAll,
     submitLoan, submitCardApp, submitDeposit, submitTransaction,
     getCryptoWallets, submitCryptoDeposit,
@@ -257,7 +269,7 @@ const SummitDB = (function () {
     getChat, getAllChats,
     changePassword, changeEmail,
     approveSignup, rejectSignup,
-    approveLoan, rejectLoan,
+    approveLoan, rejectLoan, confirmLoanFeePaid, updateLoanFee,
     approveCard, rejectCard,
     confirmDepositPaid, updateDeposit,
     approveDeposit, rejectDeposit,
@@ -266,6 +278,6 @@ const SummitDB = (function () {
     approveGiftCardDeposit, rejectGiftCardDeposit,
     updateCryptoWallet, addCryptoWallet, removeCryptoWallet,
     creditAccount, toggleFreezeCustomer,
-    reset,
+    updateSettings, reset,
   };
 })();

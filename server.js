@@ -109,6 +109,7 @@ app.get('/api/customer/:customerId', (req, res) => {
   const cards = data.cards.filter(c => c.customerId === customer.id);
   const txns = data.transactions.filter(t => t.customerId === customer.id).sort((a, b) => b.date - a.date);
   const pendingLoans = data.applications.loans.filter(l => l.customerId === customer.id && l.status === 'pending');
+  const feePendingLoans = data.applications.loans.filter(l => l.customerId === customer.id && l.status === 'fee_pending');
   const pendingCards = data.applications.cards.filter(c => c.customerId === customer.id && c.status === 'pending');
   const pendingDeposits = data.applications.deposits.filter(d => d.customerId === customer.id && d.status === 'pending');
   const pendingTxns = data.applications.transactions.filter(t => t.customerId === customer.id && t.status === 'pending');
@@ -116,11 +117,24 @@ app.get('/api/customer/:customerId', (req, res) => {
   const pendingGiftcards = data.applications.giftcards.filter(g => g.customerId === customer.id && g.status === 'pending');
   const chat = data.chats[customer.id] || [];
   const chatUnread = chat.filter(m => m.from === 'admin' && !m.readByCustomer).length;
+  const settings = data.settings || {};
+  const isNew = isNewUser(data, customer.id);
   res.json({
     ok: true,
     customer, accounts, cards, txns,
-    pendingLoans, pendingCards, pendingDeposits, pendingTxns,
+    pendingLoans, feePendingLoans, pendingCards, pendingDeposits, pendingTxns,
     pendingCrypto, pendingGiftcards, chat, chatUnread,
+    isNewUser: isNew,
+    settings: {
+      bankName: settings.bankName || 'Summit National Bank',
+      bankPhone: settings.bankPhone || '',
+      bankEmail: settings.bankEmail || '',
+      processingTimeBusinessDays: settings.processingTimeBusinessDays || '3-5 business days',
+      cardProcessingTimeBusinessDays: settings.cardProcessingTimeBusinessDays || '7-10 business days',
+      newUserDepositMethodsEnabled: settings.newUserDepositMethodsEnabled !== false,
+      newUserDepositMethods: settings.newUserDepositMethods || ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer'],
+      newUserDepositRestrictionReason: settings.newUserDepositRestrictionReason || '',
+    },
   });
 });
 
@@ -175,6 +189,15 @@ app.post('/api/card-app', (req, res) => {
 app.post('/api/deposit', (req, res) => {
   const d = req.body;
   const data = db.load();
+  const settings = data.settings || {};
+  // New-user deposit restriction
+  if (settings.newUserDepositMethodsEnabled !== false && isNewUser(data, d.customerId)) {
+    const allowed = settings.newUserDepositMethods || ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer'];
+    if (!allowed.includes(d.depType)) {
+      const reason = settings.newUserDepositRestrictionReason || 'This deposit method is not available for your account at this time.';
+      return res.json({ ok: false, error: 'deposit_restricted', reason, allowedMethods: allowed });
+    }
+  }
   const acct = data.accounts.find(a => a.id === d.acctId);
   const app = {
     id: db.nextId('deposit'),
@@ -227,6 +250,68 @@ app.get('/api/crypto/wallets', (req, res) => {
   const data = db.load();
   res.json({ ok: true, wallets: data.cryptoWallets });
 });
+
+/* ==========================================================================
+   PUBLIC SETTINGS (for user dashboard — deposit restrictions, bank info)
+   ========================================================================== */
+app.get('/api/settings', (req, res) => {
+  const data = db.load();
+  const s = data.settings || {};
+  res.json({
+    ok: true,
+    settings: {
+      bankName: s.bankName || 'Summit National Bank',
+      bankPhone: s.bankPhone || '',
+      bankEmail: s.bankEmail || '',
+      processingTimeBusinessDays: s.processingTimeBusinessDays || '3-5 business days',
+      cardProcessingTimeBusinessDays: s.cardProcessingTimeBusinessDays || '7-10 business days',
+      newUserDepositMethodsEnabled: s.newUserDepositMethodsEnabled !== false,
+      newUserDepositMethods: s.newUserDepositMethods || ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer'],
+      newUserDepositRestrictionReason: s.newUserDepositRestrictionReason || '',
+    },
+  });
+});
+
+/* ==========================================================================
+   ADMIN SETTINGS (update configurable defaults)
+   ========================================================================== */
+app.post('/api/admin/update-settings', (req, res) => {
+  const d = req.body;
+  const data = db.load();
+  if (!data.settings) data.settings = {};
+  const s = data.settings;
+  if (d.defaultCardSecurityDeposit != null) s.defaultCardSecurityDeposit = Number(d.defaultCardSecurityDeposit) || 0;
+  if (d.defaultLoanFee != null) s.defaultLoanFee = Number(d.defaultLoanFee) || 0;
+  if (d.loanFeeEnabled != null) s.loanFeeEnabled = !!d.loanFeeEnabled;
+  if (d.newUserDepositMethodsEnabled != null) s.newUserDepositMethodsEnabled = !!d.newUserDepositMethodsEnabled;
+  if (Array.isArray(d.newUserDepositMethods)) s.newUserDepositMethods = d.newUserDepositMethods;
+  if (d.newUserDepositRestrictionReason != null) s.newUserDepositRestrictionReason = String(d.newUserDepositRestrictionReason);
+  if (d.bankName != null) s.bankName = String(d.bankName);
+  if (d.bankPhone != null) s.bankPhone = String(d.bankPhone);
+  if (d.bankEmail != null) s.bankEmail = String(d.bankEmail);
+  if (d.processingTimeBusinessDays != null) s.processingTimeBusinessDays = String(d.processingTimeBusinessDays);
+  if (d.cardProcessingTimeBusinessDays != null) s.cardProcessingTimeBusinessDays = String(d.cardProcessingTimeBusinessDays);
+  db.save();
+  db.addAudit('Updated bank settings (security deposit default, loan fee, deposit restrictions, bank contact info).', 'oth', 'Dana Reyes');
+  res.json({ ok: true, settings: s });
+});
+
+/* ==========================================================================
+   HELPER: determine if a customer is a "new user" (restricted deposits)
+   A new user = no approved outgoing transactions to an external account AND
+   fewer than 3 completed/approved transactions total.
+   ========================================================================== */
+function isNewUser(data, customerId) {
+  const txns = data.transactions.filter(t => t.customerId === customerId && t.status === 'approved');
+  // no external withdrawals yet (direction 'out' transfers to recipients, not internal)
+  const externalWithdrawals = txns.filter(t => t.direction === 'out' && t.type !== 'Interest');
+  return txns.length < 3 || externalWithdrawals.length === 0;
+}
+
+/* ==========================================================================
+   LOAN FEE — when admin approves a loan, set status to 'fee_pending' and
+   record the loan fee. Loan is NOT disbursed until fee is confirmed paid.
+   ========================================================================== */
 
 app.post('/api/crypto/deposit', (req, res) => {
   const d = req.body;
@@ -386,7 +471,7 @@ app.get('/api/admin/counts', (req, res) => {
     ok: true,
     counts: {
       signups: data.applications.signups.filter(s => s.status === 'pending').length,
-      loans: data.applications.loans.filter(l => l.status === 'pending').length,
+      loans: data.applications.loans.filter(l => l.status === 'pending' || l.status === 'fee_pending').length,
       cards: data.applications.cards.filter(c => c.status === 'pending').length,
       deposits: data.applications.deposits.filter(d => d.status === 'pending').length,
       transactions: data.applications.transactions.filter(t => t.status === 'pending').length,
@@ -445,12 +530,50 @@ app.post('/api/admin/reject-signup', (req, res) => {
   res.json({ ok: true });
 });
 
-// Approve loan
+// Approve loan — sets status to 'fee_pending' with a loan origination fee.
+// The loan funds are NOT disbursed until the fee is confirmed paid.
 app.post('/api/admin/approve-loan', (req, res) => {
+  const { id, loanFee } = req.body;
+  const data = db.load();
+  const app = data.applications.loans.find(l => l.id === id);
+  if (!app) return res.json({ ok: false, error: 'Application not found.' });
+  const settings = data.settings || {};
+  const feeEnabled = settings.loanFeeEnabled !== false;
+  const fee = feeEnabled ? (loanFee != null ? Number(loanFee) : Number(settings.defaultLoanFee || 0)) : 0;
+  if (fee > 0) {
+    app.status = 'fee_pending';
+    app.loanFee = fee;
+    app.approvedAt = Date.now();
+    db.save();
+    db.addAudit(`Approved loan (${app.type}, ${db.money0(app.amount)}) for <b>${db.esc(app.name)}</b>. Loan origination fee of <b>${db.money0(fee)}</b> is required before disbursement. Loan pending until fee is paid.`, 'app', 'Dana Reyes');
+    mailer.notifyGeneric(app.email, app.name, 'Loan Approved — Origination Fee Required Before Disbursement',
+      `Congratulations! Your ${app.type} application (${app.id}) for ${db.money0(app.amount)} has been approved by our underwriting team.\n\nBefore the loan funds can be disbursed to your checking account, a one-time loan origination fee of ${db.money0(fee)} is required. This fee covers loan processing, documentation, and underwriting costs.\n\nYour loan is currently on hold pending payment of the origination fee. Once the fee is received and confirmed, the full loan amount of ${db.money0(app.amount)} will be disbursed to your checking account within 1-2 business days.\n\nPlease contact our loan department at ${settings.bankPhone || '1-800-555-0142'} or visit any Summit National Bank branch to arrange payment of the origination fee.\n\nReference: ${app.id}`
+    ).catch(e => console.error('Email error:', e.message));
+    res.json({ ok: true, status: 'fee_pending', loanFee: fee });
+  } else {
+    // No fee — disburse immediately (legacy / fee disabled path)
+    let acct = data.accounts.find(a => a.customerId === app.customerId && a.type === 'Checking');
+    if (!acct) {
+      acct = { id: db.nextId('acct'), customerId: app.customerId, name: app.name, acctNo: db.genAcctNo(), type: 'Checking', balance: 0, status: 'active', opened: new Date().toISOString().slice(0, 10) };
+      data.accounts.push(acct);
+    }
+    acct.balance += app.amount;
+    data.transactions.push({ id: db.nextId('txn'), customerId: app.customerId, name: app.name, acctNo: acct.acctNo, type: 'Loan Disbursement', direction: 'in', amount: app.amount, recipient: app.type + ' disbursement', ref: 'LOAN-' + app.id, status: 'approved', date: Date.now() });
+    app.status = 'approved'; app.loanFee = 0; app.approvedAt = Date.now();
+    db.save();
+    db.addAudit(`Approved loan (${app.type}, ${db.money0(app.amount)}) for <b>${db.esc(app.name)}</b>. Disbursed to account <span class="mono">${acct.acctNo}</span>. New balance: ${db.money(acct.balance)}.`, 'app', 'Dana Reyes');
+    mailer.notifyLoanApproved(app.email, app.name, app.type, app.amount, acct.acctNo, acct.balance).catch(e => console.error('Email error:', e.message));
+    res.json({ ok: true, status: 'approved', loanFee: 0 });
+  }
+});
+
+// Confirm loan fee paid — disburses the loan funds to checking
+app.post('/api/admin/confirm-loan-fee-paid', (req, res) => {
   const { id } = req.body;
   const data = db.load();
   const app = data.applications.loans.find(l => l.id === id);
   if (!app) return res.json({ ok: false, error: 'Application not found.' });
+  if (app.status !== 'fee_pending') return res.json({ ok: false, error: 'Loan is not in fee-pending status.' });
   let acct = data.accounts.find(a => a.customerId === app.customerId && a.type === 'Checking');
   if (!acct) {
     acct = { id: db.nextId('acct'), customerId: app.customerId, name: app.name, acctNo: db.genAcctNo(), type: 'Checking', balance: 0, status: 'active', opened: new Date().toISOString().slice(0, 10) };
@@ -458,10 +581,26 @@ app.post('/api/admin/approve-loan', (req, res) => {
   }
   acct.balance += app.amount;
   data.transactions.push({ id: db.nextId('txn'), customerId: app.customerId, name: app.name, acctNo: acct.acctNo, type: 'Loan Disbursement', direction: 'in', amount: app.amount, recipient: app.type + ' disbursement', ref: 'LOAN-' + app.id, status: 'approved', date: Date.now() });
-  app.status = 'approved';
+  app.status = 'approved'; app.feePaidAt = Date.now();
   db.save();
-  db.addAudit(`Approved loan (${app.type}, ${db.money0(app.amount)}) for <b>${db.esc(app.name)}</b>. Disbursed to account <span class="mono">${acct.acctNo}</span>. New balance: ${db.money(acct.balance)}.`, 'app', 'Dana Reyes');
-  mailer.notifyLoanApproved(app.email, app.name, app.type, app.amount, acct.acctNo, acct.balance).catch(e => console.error('Email error:', e.message));
+  const settings = data.settings || {};
+  db.addAudit(`Loan origination fee confirmed for ${app.type} loan (${db.money0(app.amount)}) — <b>${db.esc(app.name)}</b>. Disbursed to account <span class="mono">${acct.acctNo}</span>. New balance: ${db.money(acct.balance)}.`, 'app', 'Dana Reyes');
+  mailer.notifyGeneric(app.email, app.name, 'Loan Funds Disbursed to Your Account',
+    `Your loan origination fee has been received and confirmed. The full loan amount of ${db.money0(app.amount)} for your ${app.type} (Reference: ${app.id}) has now been disbursed to your checking account ending in ${acct.acctNo.slice(-4)}.\n\nYour new checking account balance is ${db.money(acct.balance)}.\n\nThank you for banking with Summit National Bank.`
+  ).catch(e => console.error('Email error:', e.message));
+  res.json({ ok: true });
+});
+
+// Admin can edit the loan fee on an existing fee_pending loan
+app.post('/api/admin/update-loan-fee', (req, res) => {
+  const { id, loanFee } = req.body;
+  const data = db.load();
+  const app = data.applications.loans.find(l => l.id === id);
+  if (!app) return res.json({ ok: false, error: 'Application not found.' });
+  if (app.status !== 'fee_pending') return res.json({ ok: false, error: 'Loan fee can only be edited while in fee-pending status.' });
+  app.loanFee = Number(loanFee) || 0;
+  db.save();
+  db.addAudit(`Updated loan origination fee to <b>${db.money0(app.loanFee)}</b> for loan ${app.id} (${db.esc(app.name)}).`, 'oth', 'Dana Reyes');
   res.json({ ok: true });
 });
 
@@ -484,8 +623,12 @@ app.post('/api/admin/approve-card', (req, res) => {
   const data = db.load();
   const app = data.applications.cards.find(c => c.id === id);
   if (!app) return res.json({ ok: false, error: 'Application not found.' });
+  const settings = data.settings || {};
   const lim = limit != null ? limit : app.reqLimit;
-  const dep = Number(securityDeposit) > 0 ? Number(securityDeposit) : 0;
+  // Use provided securityDeposit, else default from settings, else 0
+  const dep = securityDeposit != null
+    ? (Number(securityDeposit) > 0 ? Number(securityDeposit) : 0)
+    : (Number(settings.defaultCardSecurityDeposit) > 0 ? Number(settings.defaultCardSecurityDeposit) : 0);
   const card = {
     id: db.nextId('cardissue'), customerId: app.customerId, name: app.name,
     cardType: app.cardType, cardNo: db.genCardNo(), limit: lim, balance: 0,

