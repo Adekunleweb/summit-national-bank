@@ -62,7 +62,274 @@ function showModal(title, body) {
   $('modalBody').innerHTML = body;
   $('modalOverlay').classList.add('open');
 }
-function closeModal() { $('modalOverlay').classList.remove('open'); }
+function closeModal() {
+  $('modalOverlay').classList.remove('open');
+  // Clean up receipt modal styling so it doesn't affect other modals
+  const modal = $('modalOverlay').querySelector('.modal');
+  if (modal) modal.classList.remove('receipt-modal');
+  // Reset footer to default
+  const foot = $('modalOverlay').querySelector('.modal-foot');
+  if (foot) foot.innerHTML = '<button class="btn btn-ghost" onclick="closeModal()">Close</button>';
+}
+
+/* ---------- Full date/time formatter for receipts ---------- */
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' \u2022 ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+}
+
+/* ==========================================================================
+   TRANSACTION RECEIPT
+   Opens a professional, printable bank receipt for any transaction.
+   Works for both completed transactions and pending transfer requests.
+   ========================================================================== */
+function showReceipt(txnId) {
+  // Find the transaction in cached data (completed txns + pending txns)
+  const d = cachedData;
+  if (!d) return;
+
+  let t = (d.txns || []).find(x => x.id === txnId);
+  let isPending = false;
+  if (!t) {
+    t = (d.pendingTxns || []).find(x => x.id === txnId);
+    isPending = !!t;
+  }
+  if (!t) return;
+
+  // Find the account this transaction belongs to
+  const acct = (d.accounts || []).find(a => a.acctNo === t.acctNo);
+  const customer = d.customer;
+  const settings = d.settings || {};
+
+  const bankName = settings.bankName || 'Summit National Bank';
+  const bankPhone = settings.bankPhone || '1-800-555-0142';
+  const bankEmail = settings.bankEmail || 'support@summitnationalbank.com';
+
+  const isIn = t.direction === 'in';
+  const sign = isIn ? '+' : '\u2212';
+  const dirLabel = isIn ? 'CREDIT' : 'DEBIT';
+  const statusLabel = isPending ? 'Processing' : (t.status === 'approved' ? 'Approved' : t.status || 'Approved');
+  const statusClass = isPending ? 'rs-pending' : (t.status === 'rejected' ? 'rs-rejected' : 'rs-approved');
+
+  // Determine transaction type label
+  const typeLabel = t.type || 'Transaction';
+
+  // Build receipt HTML
+  const bodyHTML = `
+    <div class="receipt-print-area">
+      <div class="receipt">
+        <!-- Bank Header -->
+        <div class="receipt-header">
+          <div class="rh-bank">
+            <span class="rh-logo">S</span>
+            <span>${esc(bankName)}</span>
+          </div>
+          <div class="rh-sub">Member FDIC \u2022 Equal Housing Lender</div>
+          <div class="rh-title">Official Transaction Receipt</div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="receipt-status">
+          <span class="rs-badge ${statusClass}">${esc(statusLabel)}</span>
+        </div>
+
+        <!-- Transaction Details -->
+        <div class="receipt-body">
+          <div class="receipt-detail-grid">
+            <div class="receipt-detail-row">
+              <span class="rd-label">Transaction ID</span>
+              <span class="rd-value mono">${esc(t.id)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">Reference No.</span>
+              <span class="rd-value mono">${esc(t.ref)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">Transaction Type</span>
+              <span class="rd-value">${esc(typeLabel)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">${isIn ? 'Source' : 'Recipient'}</span>
+              <span class="rd-value">${esc(t.recipient)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">Account Holder</span>
+              <span class="rd-value">${esc(customer.name)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">Account Number</span>
+              <span class="rd-value mono">\u2022\u2022\u2022\u2022${esc(t.acctNo ? t.acctNo.slice(-4) : '----')}</span>
+            </div>
+            ${acct ? `<div class="receipt-detail-row">
+              <span class="rd-label">Account Type</span>
+              <span class="rd-value">${esc(acct.type)}</span>
+            </div>` : ''}
+            <div class="receipt-detail-row">
+              <span class="rd-label">Date & Time</span>
+              <span class="rd-value">${fmtDateTime(t.date)}</span>
+            </div>
+            <div class="receipt-detail-row">
+              <span class="rd-label">Direction</span>
+              <span class="rd-value">${dirLabel}</span>
+            </div>
+          </div>
+
+          <!-- Amount Section -->
+          <div class="receipt-amount-section">
+            <div class="ra-label">Transaction Amount</div>
+            <div class="ra-amount ${isIn ? 'in' : 'out'}">${sign}${money(t.amount)}</div>
+            <div class="ra-direction">${isIn ? 'Credited to your account' : 'Debited from your account'}</div>
+          </div>
+
+          ${acct ? `<div class="receipt-detail-grid">
+            <div class="receipt-detail-row">
+              <span class="rd-label">Balance After Transaction</span>
+              <span class="rd-value">${money(acct.balance)}</span>
+            </div>
+          </div>` : ''}
+        </div>
+
+        <!-- Footer -->
+        <div class="receipt-footer">
+          <div class="rf-divider"></div>
+          <div class="rf-note">
+            <strong>${esc(bankName)}</strong><br>
+            ${esc(bankPhone)} \u2022 ${esc(bankEmail)}<br>
+            This is an electronically generated receipt and does not require a signature.<br>
+            Please retain for your records. \u2022 Generated ${fmtDateTime(Date.now())}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Build action buttons (print + download)
+  const actionsHTML = `
+    <div class="receipt-actions">
+      <button class="btn btn-download" onclick="downloadReceipt('${esc(txnId)}')">
+        \u2B07\uFE0F Download
+      </button>
+      <button class="btn btn-print" onclick="printReceipt()">
+        \U0001F5A8\uFE0F Print Receipt
+      </button>
+    </div>
+  `;
+
+  // Show in modal — we need a wider modal and custom footer
+  $('modalOverlay').classList.add('open');
+  const modal = $('modalOverlay').querySelector('.modal');
+  if (modal) modal.classList.add('receipt-modal');
+
+  $('modalTitle').textContent = 'Transaction Receipt';
+  $('modalBody').innerHTML = bodyHTML;
+
+  // Replace footer with receipt actions
+  const foot = $('modalOverlay').querySelector('.modal-foot');
+  if (foot) foot.innerHTML = actionsHTML + '<button class="btn btn-ghost" onclick="closeModal()">Close</button>';
+}
+
+/* Print the receipt using browser print dialog */
+function printReceipt() {
+  window.print();
+}
+
+/* Download receipt as a printable HTML file */
+function downloadReceipt(txnId) {
+  const d = cachedData;
+  if (!d) return;
+  let t = (d.txns || []).find(x => x.id === txnId);
+  let isPending = false;
+  if (!t) { t = (d.pendingTxns || []).find(x => x.id === txnId); isPending = !!t; }
+  if (!t) return;
+
+  const acct = (d.accounts || []).find(a => a.acctNo === t.acctNo);
+  const customer = d.customer;
+  const settings = d.settings || {};
+  const bankName = settings.bankName || 'Summit National Bank';
+  const bankPhone = settings.bankPhone || '1-800-555-0142';
+  const bankEmail = settings.bankEmail || 'support@summitnationalbank.com';
+  const isIn = t.direction === 'in';
+  const sign = isIn ? '+' : '-';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt ${esc(t.ref)} - ${esc(bankName)}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; padding: 40px 20px; color: #0f172a; }
+  .receipt { max-width: 520px; margin: 0 auto; background: #fff; border-radius: 18px; box-shadow: 0 12px 28px rgba(10,31,68,.10); overflow: hidden; }
+  .receipt-header { text-align: center; padding: 28px 24px 20px; border-bottom: 2px solid #0a1f44; background: linear-gradient(180deg, #0a1f44, #102a5c); color: #fff; }
+  .rh-bank { font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .rh-logo { width: 36px; height: 36px; background: linear-gradient(135deg, #c8a24a, #d9b86a); border-radius: 8px; display: grid; place-items: center; font-size: 18px; font-weight: 900; color: #0a1f44; }
+  .rh-sub { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; }
+  .rh-title { font-size: 15px; font-weight: 600; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.15); }
+  .receipt-status { text-align: center; padding: 14px; }
+  .rs-badge { padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  .rs-approved { background: #dcfce7; color: #15803d; }
+  .rs-pending { background: #fef3c7; color: #b45309; }
+  .receipt-body { padding: 20px 24px; }
+  .rd-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px dashed #e2e8f0; }
+  .rd-row:last-child { border-bottom: none; }
+  .rd-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .rd-value { font-size: 14px; font-weight: 600; text-align: right; }
+  .mono { font-family: 'Courier New', monospace; }
+  .amount-section { margin: 16px 0; padding: 18px 20px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; text-align: center; }
+  .ra-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+  .ra-amount { font-size: 30px; font-weight: 800; }
+  .ra-amount.in { color: #16a34a; }
+  .receipt-footer { padding: 16px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; text-align: center; }
+  .rf-divider { width: 60px; height: 3px; background: #c8a24a; margin: 0 auto 10px; border-radius: 2px; }
+  .rf-note { font-size: 11px; color: #64748b; line-height: 1.7; }
+  @media print { body { background: #fff; padding: 0; } }
+</style>
+</head>
+<body>
+  <div class="receipt">
+    <div class="receipt-header">
+      <div class="rh-bank"><span class="rh-logo">S</span><span>${esc(bankName)}</span></div>
+      <div class="rh-sub">Member FDIC &bull; Equal Housing Lender</div>
+      <div class="rh-title">Official Transaction Receipt</div>
+    </div>
+    <div class="receipt-status"><span class="rs-badge ${isPending ? 'rs-pending' : 'rs-approved'}">${isPending ? 'Processing' : 'Approved'}</span></div>
+    <div class="receipt-body">
+      <div class="rd-row"><span class="rd-label">Transaction ID</span><span class="rd-value mono">${esc(t.id)}</span></div>
+      <div class="rd-row"><span class="rd-label">Reference No.</span><span class="rd-value mono">${esc(t.ref)}</span></div>
+      <div class="rd-row"><span class="rd-label">Transaction Type</span><span class="rd-value">${esc(t.type)}</span></div>
+      <div class="rd-row"><span class="rd-label">${isIn ? 'Source' : 'Recipient'}</span><span class="rd-value">${esc(t.recipient)}</span></div>
+      <div class="rd-row"><span class="rd-label">Account Holder</span><span class="rd-value">${esc(customer.name)}</span></div>
+      <div class="rd-row"><span class="rd-label">Account Number</span><span class="rd-value mono">****${esc(t.acctNo ? t.acctNo.slice(-4) : '----')}</span></div>
+      ${acct ? `<div class="rd-row"><span class="rd-label">Account Type</span><span class="rd-value">${esc(acct.type)}</span></div>` : ''}
+      <div class="rd-row"><span class="rd-label">Date & Time</span><span class="rd-value">${fmtDateTime(t.date)}</span></div>
+      <div class="rd-row"><span class="rd-label">Direction</span><span class="rd-value">${isIn ? 'CREDIT' : 'DEBIT'}</span></div>
+      <div class="amount-section">
+        <div class="ra-label">Transaction Amount</div>
+        <div class="ra-amount ${isIn ? 'in' : ''}">${sign}$${Number(t.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">${isIn ? 'Credited to your account' : 'Debited from your account'}</div>
+      </div>
+      ${acct ? `<div class="rd-row"><span class="rd-label">Balance After Transaction</span><span class="rd-value">$${Number(acct.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>` : ''}
+    </div>
+    <div class="receipt-footer">
+      <div class="rf-divider"></div>
+      <div class="rf-note"><strong>${esc(bankName)}</strong><br>${esc(bankPhone)} &bull; ${esc(bankEmail)}<br>This is an electronically generated receipt and does not require a signature.<br>Please retain for your records.</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Receipt-' + t.ref + '.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 /* ==========================================================================
    RENDER — async, fetches from backend
@@ -144,10 +411,12 @@ function renderOverviewTxns(d) {
 function txnRow(t, simple) {
   const dir = t.direction === 'in' ? 'pos' : 'neg';
   const sign = t.direction === 'in' ? '+' : '−';
+  const clickAttr = `onclick="showReceipt('${esc(t.id)}')" class="txn-row-clickable"`;
+  const receiptHint = '<span class="txn-receipt-icon">\U0001F4C4</span>';
   if (simple) {
-    return `<tr><td><div class="cell-strong">${esc(t.recipient)}</div><div class="cell-sub">${esc(t.type)}</div></td><td>${esc(t.type)}</td><td class="cell-sub">${fmtDate(t.date)}</td><td style="text-align:right"><span class="amount ${dir}">${sign}${money(t.amount)}</span></td></tr>`;
+    return `<tr ${clickAttr}><td><div class="cell-strong">${esc(t.recipient)}${receiptHint}</div><div class="cell-sub">${esc(t.type)}</div></td><td>${esc(t.type)}</td><td class="cell-sub">${fmtDate(t.date)}</td><td style="text-align:right"><span class="amount ${dir}">${sign}${money(t.amount)}</span></td></tr>`;
   }
-  return `<tr><td><div class="cell-strong">${esc(t.recipient)}</div></td><td>${esc(t.type)}</td><td class="mono">${esc(t.ref)}</td><td class="cell-sub">${fmtDate(t.date)}</td><td style="text-align:right"><span class="amount ${dir}">${sign}${money(t.amount)}</span></td></tr>`;
+  return `<tr ${clickAttr}><td><div class="cell-strong">${esc(t.recipient)}${receiptHint}</div></td><td>${esc(t.type)}</td><td class="mono">${esc(t.ref)}</td><td class="cell-sub">${fmtDate(t.date)}</td><td style="text-align:right"><span class="amount ${dir}">${sign}${money(t.amount)}</span></td></tr>`;
 }
 
 function renderTxns(d) {
@@ -156,7 +425,7 @@ function renderTxns(d) {
   const pending = d.pendingTxns;
   if (pending.length) {
     $('pendingTxnsPanel').style.display = 'block';
-    $('pendingTxnsTable').innerHTML = pending.map(t => `<tr>
+    $('pendingTxnsTable').innerHTML = pending.map(t => `<tr onclick="showReceipt('${esc(t.id)}')" class="txn-row-clickable">
       <td><span class="cell-strong">${esc(t.type)}</span></td>
       <td>${esc(t.recipient)}</td>
       <td class="mono">${esc(t.ref)}</td>
